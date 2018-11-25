@@ -11,12 +11,20 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-extern crate jvo_asm;
+pub struct Config {
+    pub filename: String,
+}
 
-use jvo_asm::config::Config;
-use std::env;
+impl Config {
+    pub fn new(mut args: Vec<String>) -> Result<Config, String> {
+        let program_name = args.remove(0);
 
-fn main() {
-    let config = Config::new(env::args().collect()).unwrap();
-    jvo_asm::run(config);
+        if args.len() < 1 {
+            Err(format!("Usage: {} program.jas", program_name))
+        } else {
+            Ok(Config {
+                filename: args.remove(0),
+            })
+        }
+    }
 }

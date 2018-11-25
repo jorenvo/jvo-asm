@@ -13,29 +13,13 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 mod common;
 mod compiler;
+pub mod config;
 mod tokenizer;
 
 use compiler::*;
+use config::*;
 use std::{error, fs};
 use tokenizer::*;
-
-pub struct Config {
-    pub filename: String,
-}
-
-impl Config {
-    pub fn new(mut args: Vec<String>) -> Result<Config, String> {
-        let program_name = args.remove(0);
-
-        if args.len() < 1 {
-            Err(format!("Usage: {} program.jas", program_name))
-        } else {
-            Ok(Config {
-                filename: args.remove(0),
-            })
-        }
-    }
-}
 
 fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
     let mut program: Vec<u8> = vec![];
