@@ -11,10 +11,12 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#![allow(unused)]
+mod common;
+mod compiler;
 mod tokenizer;
 
-use std::{error, fmt, fs};
+use compiler::*;
+use std::{error, fs};
 use tokenizer::*;
 
 pub struct Config {
@@ -35,49 +37,6 @@ impl Config {
     }
 }
 
-#[derive(Debug, Clone)]
-struct CompileError {
-    msg: String,
-}
-
-impl fmt::Display for CompileError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.msg)
-    }
-}
-
-impl error::Error for CompileError {
-    fn description(&self) -> &str {
-        self.msg.as_str()
-    }
-}
-
-// enum Instruction {
-//     Move,
-//     Add,
-// }
-
-// struct Move {
-//     left: Token,
-//     right: Token,
-// }
-
-// struct Add {
-//     left: Token,
-//     right: Token,
-// }
-
-// struct Value {}
-// struct Memory {}
-// struct BasePointerMemory {}
-// struct Register {}
-
-fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
-    Err(Box::new(CompileError {
-        msg: "Not implemented!".to_string(),
-    }))
-}
-
 fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
     let mut program: Vec<u8> = vec![];
     let content = fs::read_to_string(filename)?;
@@ -95,5 +54,5 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
 pub fn run(config: Config) {
     println!("compile {}", config.filename);
 
-    let program = process(&config.filename).unwrap();
+    let _program = process(&config.filename).unwrap();
 }

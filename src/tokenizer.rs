@@ -11,23 +11,8 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+use common::*;
 use std::{error, fmt};
-
-#[derive(Debug, PartialEq)]
-enum TokenType {
-    Move,
-    Add,
-    Value,
-    Memory,
-    BasePointerMemory,
-    Register,
-    Return,
-}
-
-pub struct Token {
-    t: Option<TokenType>,
-    value: String,
-}
 
 #[derive(Debug, Clone)]
 struct TokenizeError {
