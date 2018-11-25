@@ -12,10 +12,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #![allow(unused)]
-extern crate unicode_segmentation;
-
 use std::{error, fmt, fs};
-use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Config {
     pub filename: String,
@@ -67,7 +64,7 @@ enum TokenType {
 }
 
 struct Token {
-    t: TokenType,
+    t: Option<TokenType>,
     value: String,
 }
 
@@ -88,24 +85,51 @@ impl error::Error for CompileError {
     }
 }
 
+fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
+    let mut token = Token {
+        t: None,
+        value: word.to_string(),
+    };
+
+    match word {
+        "ret" => {
+            token.t = Some(TokenType::Return);
+        }
+        "add" => {
+            token.t = Some(TokenType::Add);
+        }
+        _ if word.starts_with("$") => {
+            token.t = Some(TokenType::Value);
+        }
+        _ if word.starts_with("%") => {
+            token.t = Some(TokenType::Register);
+        }
+        _ => {
+            return Err(Box::new(CompileError {
+                msg: format!("Unexpected token: {}", word),
+            }));
+        }
+    };
+
+    return Ok(token);
+}
+
 fn tokenize(line: &str) -> Result<Vec<Token>, Box<error::Error>> {
     let mut tokens = vec![];
+    let ignore_char = |c: char| c == ',' || c.is_whitespace();
 
-    for word in line.unicode_words() {
-        match word {
-            "ret" => {
-                tokens.push(Token {
-                    t: TokenType::Return,
-                    value: word.to_string(),
-                });
-            }
+    for word in line.split(' ') {
+        let word = word.trim_matches(ignore_char);
+        if word.is_empty() {
+            continue;
+        }
 
-            _ => {
-                return Err(Box::new(CompileError {
-                    msg: format!("Unexpected token: {}", word),
-                }));
-            }
-        };
+        if word.starts_with("#") {
+            break;
+        }
+
+        let token = tokenize_word(word)?;
+        tokens.push(token);
     }
 
     Ok(tokens)
@@ -122,15 +146,66 @@ mod test_tokenize {
     }
 
     #[test]
-    fn test_syntax_error() {
+    fn test_syntax_error1() {
         assert!(tokenize("foobar").is_err());
+    }
+
+    #[test]
+    fn test_syntax_error2() {
+        assert!(tokenize("add $5, x").is_err());
+    }
+
+    fn verify_ret(tokens: &Vec<Token>) {
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].t, Some(TokenType::Return));
     }
 
     #[test]
     fn test_ret() {
         let tokens = tokenize("ret").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].t, TokenType::Return);
+        verify_ret(&tokens);
+    }
+
+    fn verify_add(tokens: &Vec<Token>) {
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].t, Some(TokenType::Add));
+
+        assert_eq!(tokens[1].t, Some(TokenType::Value));
+        assert_eq!(tokens[1].value, "$5");
+
+        assert_eq!(tokens[2].t, Some(TokenType::Register));
+        assert_eq!(tokens[2].value, "%eax");
+    }
+
+    #[test]
+    fn test_add() {
+        let tokens = tokenize("add $5, %eax").unwrap();
+        verify_add(&tokens);
+    }
+
+    #[test]
+    fn test_whitespace1() {
+        let tokens = tokenize("ret        ").unwrap();
+        verify_ret(&tokens);
+    }
+
+    #[test]
+    fn test_whitespace2() {
+        let tokens = tokenize("    ret        ").unwrap();
+        verify_ret(&tokens);
+    }
+
+    #[test]
+    fn test_whitespace3() {
+        let tokens = tokenize("add 	$5   ,    %eax").unwrap();
+        //                         ^ TAB
+        verify_add(&tokens);
+    }
+
+    #[test]
+    fn test_comment() {
+        let tokens = tokenize("ret # some comment").unwrap();
+        verify_ret(&tokens);
     }
 }
 
