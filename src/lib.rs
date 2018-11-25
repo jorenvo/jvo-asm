@@ -92,16 +92,20 @@ fn tokenize(line: &str) -> Result<Vec<Token>, Box<error::Error>> {
     let mut tokens = vec![];
 
     for word in line.unicode_words() {
-        if word == "ret" {
-            tokens.push(Token {
-                t: TokenType::Return,
-                value: word.to_string(),
-            });
-        } else {
-            return Err(Box::new(CompileError {
-                msg: format!("Unexpected token: {}", word),
-            }));
-        }
+        match word {
+            "ret" => {
+                tokens.push(Token {
+                    t: TokenType::Return,
+                    value: word.to_string(),
+                });
+            }
+
+            _ => {
+                return Err(Box::new(CompileError {
+                    msg: format!("Unexpected token: {}", word),
+                }));
+            }
+        };
     }
 
     Ok(tokens)
