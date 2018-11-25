@@ -51,7 +51,7 @@ impl error::Error for CompileError {
 // struct BasePointerMemory {}
 // struct Register {}
 
-pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
+pub fn compile(_tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
     Err(Box::new(CompileError {
         msg: "Not implemented!".to_string(),
     }))
