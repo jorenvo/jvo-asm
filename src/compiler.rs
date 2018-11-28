@@ -82,7 +82,7 @@ impl<'a> Compile for InstructionMove<'a> {
         // register is specified in 3 LSb's
         opcode |= get_reg_value(self.right)?;
 
-        Ok(vec![opcode, self.left.value.parse::<u8>().unwrap(), 0x00])
+        Ok(vec![self.left.value.parse::<u8>().unwrap(), opcode, 0x00, 0x00])
     }
 }
 
@@ -118,7 +118,7 @@ mod test_instruction_move {
         };
 
         let bytes = instruction.compile().unwrap();
-        assert!(vec_compare(&[0xba, 0x01, 0x00], &bytes));
+        assert!(vec_compare(&[0x01, 0xba, 0x00, 0x00], &bytes));
     }
 
     #[test]
@@ -142,7 +142,9 @@ mod test_instruction_move {
         };
 
         let bytes = instruction.compile().unwrap();
-        assert!(vec_compare(&[0xb8, 0x00, 0x00], &bytes));
+        assert!(vec_compare(&[0x00, 0xb8, 0x00, 0x00], &bytes));
+    }
+}
     }
 }
 
