@@ -69,7 +69,7 @@ fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
     }
 }
 
-trait Compile {
+trait Instruction {
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>>;
 }
 
@@ -79,7 +79,7 @@ struct InstructionMove<'a> {
     right: &'a Token,
 }
 
-impl<'a> Compile for InstructionMove<'a> {
+impl<'a> Instruction for InstructionMove<'a> {
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
         // p 1161
         // TODO only supports moving immediate values for now
@@ -102,7 +102,7 @@ struct InstructionInterrupt<'a> {
     operand: &'a Token,
 }
 
-impl<'a> Compile for InstructionInterrupt<'a> {
+impl<'a> Instruction for InstructionInterrupt<'a> {
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
         // p 1031
         Ok(vec![self.operand.value.parse::<u8>()?, 0xcd])
@@ -189,7 +189,7 @@ mod test_instruction_move {
 }
 
 pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
-    let operation: Box<Compile> = match tokens[0].t {
+    let operation: Box<Instruction> = match tokens[0].t {
          // TODO check if the token types are correct
         Some(TokenType::Move) => Box::new(InstructionMove {
             operation: &tokens[0],
