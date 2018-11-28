@@ -120,6 +120,30 @@ mod test_instruction_move {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(&[0xba, 0x01, 0x00], &bytes));
     }
+
+    #[test]
+    fn test_immediate2() {
+        let operation = Token {
+            t: Some(TokenType::Move),
+            value: "mov".to_string(),
+        };
+        let left = Token {
+            t: Some(TokenType::Value),
+            value: "0".to_string(),
+        };
+        let right = Token {
+            t: Some(TokenType::Register),
+            value: "eax".to_string(),
+        };
+        let instruction = InstructionMove {
+            operation: &operation,
+            left: &left,
+            right: &right,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(&[0xb8, 0x00, 0x00], &bytes));
+    }
 }
 
 pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {

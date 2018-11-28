@@ -49,9 +49,11 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         }
         _ if word.starts_with("$") => {
             token.t = Some(TokenType::Value);
+            token.value.remove(0);
         }
         _ if word.starts_with("%") => {
             token.t = Some(TokenType::Register);
+            token.value.remove(0);
         }
         _ => {
             return Err(Box::new(TokenizeError {
@@ -120,10 +122,10 @@ mod test_tokenize {
         assert_eq!(tokens[0].t, Some(TokenType::Add));
 
         assert_eq!(tokens[1].t, Some(TokenType::Value));
-        assert_eq!(tokens[1].value, "$5");
+        assert_eq!(tokens[1].value, "5");
 
         assert_eq!(tokens[2].t, Some(TokenType::Register));
-        assert_eq!(tokens[2].value, "%eax");
+        assert_eq!(tokens[2].value, "eax");
     }
 
     #[test]
