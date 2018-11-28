@@ -23,6 +23,7 @@ pub enum TokenType {
     BasePointerMemory,
     Register,
     Return,
+    Interrupt,
 }
 
 pub struct Token {

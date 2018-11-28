@@ -47,6 +47,9 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "mov" => {
             token.t = Some(TokenType::Move);
         }
+        "int" => {
+            token.t = Some(TokenType::Interrupt);
+        }
         _ if word.starts_with("$") => {
             token.t = Some(TokenType::Value);
             token.value.remove(0);

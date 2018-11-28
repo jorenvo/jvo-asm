@@ -11,6 +11,10 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// Notes:
+// Instruction format (p 505)
+
 #![allow(unused_variables, dead_code)]
 use common::*;
 use std::{error, fmt};
@@ -53,6 +57,7 @@ impl error::Error for CompileError {
 // struct Register {}
 
 fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
+    // p 574
     match token.value.as_str() {
         "eax" => Ok(0),
         "ecx" => Ok(1),
@@ -64,25 +69,43 @@ fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
     }
 }
 
+trait Compile {
+    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>>;
+}
+
 struct InstructionMove<'a> {
     operation: &'a Token,
     left: &'a Token,
     right: &'a Token,
 }
 
-trait Compile {
-    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>>;
-}
-
 impl<'a> Compile for InstructionMove<'a> {
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
+        // p 1161
         // TODO only supports moving immediate values for now
         let mut opcode = 0xb8;
 
         // register is specified in 3 LSb's
         opcode |= get_reg_value(self.right)?;
 
-        Ok(vec![self.left.value.parse::<u8>().unwrap(), opcode, 0x00, 0x00])
+        Ok(vec![
+            self.left.value.parse::<u8>().unwrap(),
+            opcode,
+            0x00,
+            0x00,
+        ])
+    }
+}
+
+struct InstructionInterrupt<'a> {
+    operation: &'a Token,
+    operand: &'a Token,
+}
+
+impl<'a> Compile for InstructionInterrupt<'a> {
+    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
+        // p 1031
+        Ok(vec![self.operand.value.parse::<u8>()?, 0xcd])
     }
 }
 
@@ -98,7 +121,7 @@ mod test_instruction_move {
     }
 
     #[test]
-    fn test_immediate1() {
+    fn test_move_immediate1() {
         let operation = Token {
             t: Some(TokenType::Move),
             value: "mov".to_string(),
@@ -122,7 +145,7 @@ mod test_instruction_move {
     }
 
     #[test]
-    fn test_immediate2() {
+    fn test_move_immediate2() {
         let operation = Token {
             t: Some(TokenType::Move),
             value: "mov".to_string(),
@@ -144,18 +167,39 @@ mod test_instruction_move {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(&[0x00, 0xb8, 0x00, 0x00], &bytes));
     }
-}
+
+    #[test]
+    fn test_interrupt_linux() {
+        let operation = Token {
+            t: Some(TokenType::Interrupt),
+            value: "int".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "128".to_string(),
+        };
+        let instruction = InstructionInterrupt {
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(&[128, 0xcd], &bytes));
     }
 }
 
 pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
-    let operation = match tokens[0].t {
-        Some(TokenType::Move) => InstructionMove {
-            operation: &tokens[0],  // TODO check if the token types are correct
+    let operation: Box<Compile> = match tokens[0].t {
+         // TODO check if the token types are correct
+        Some(TokenType::Move) => Box::new(InstructionMove {
+            operation: &tokens[0],
             left: &tokens[1],
             right: &tokens[2],
-        },
-
+        }),
+        Some(TokenType::Interrupt) => Box::new(InstructionInterrupt {
+            operation: &tokens[0],
+            operand: &tokens[1],
+        }),
         _ => {
             return Err(Box::new(CompileError {
                 msg: format!(
@@ -169,16 +213,3 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
 
     operation.compile()
 }
-
-// Notes:
-// Instruction format (p 505)
-// We won't do:
-// - stick to 1 byte opcodes
-// - mod/rm optionally 1 byte
-// - SIB optional
-// 1B opcode, (1B MODR/M), (1B SIB), (1B displacement), (1B immediate)
-
-// MOV (p 1161)
-// opcode: 8b
-// 3 least significant opcode bits are used to encode the register
-// registers codes (p 574)
