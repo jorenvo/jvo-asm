@@ -11,6 +11,8 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+use std::fmt;
+
 #[allow(unused)]
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
@@ -26,4 +28,10 @@ pub enum TokenType {
 pub struct Token {
     pub t: Option<TokenType>,
     pub value: String,
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
 }

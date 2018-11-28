@@ -44,6 +44,9 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "add" => {
             token.t = Some(TokenType::Add);
         }
+        "mov" => {
+            token.t = Some(TokenType::Move);
+        }
         _ if word.starts_with("$") => {
             token.t = Some(TokenType::Value);
         }

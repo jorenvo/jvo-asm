@@ -11,6 +11,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#![allow(unused_variables, dead_code)]
 use common::*;
 use std::{error, fmt};
 
@@ -51,8 +52,107 @@ impl error::Error for CompileError {
 // struct BasePointerMemory {}
 // struct Register {}
 
-pub fn compile(_tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
-    Err(Box::new(CompileError {
-        msg: "Not implemented!".to_string(),
-    }))
+fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
+    match token.value.as_str() {
+        "eax" => Ok(0),
+        "ecx" => Ok(1),
+        "edx" => Ok(2),
+        "ebx" => Ok(3),
+        _ => Err(Box::new(CompileError {
+            msg: format!("{} is not a valid register", token.value),
+        })),
+    }
 }
+
+struct InstructionMove<'a> {
+    operation: &'a Token,
+    left: &'a Token,
+    right: &'a Token,
+}
+
+trait Compile {
+    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>>;
+}
+
+impl<'a> Compile for InstructionMove<'a> {
+    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
+        // TODO only supports moving immediate values for now
+        let mut opcode = 0xb8;
+
+        // register is specified in 3 LSb's
+        opcode |= get_reg_value(self.right)?;
+
+        Ok(vec![opcode, self.left.value.parse::<u8>().unwrap(), 0x00])
+    }
+}
+
+#[cfg(test)]
+mod test_instruction_move {
+    use super::*;
+
+    fn vec_compare(va: &[u8], vb: &[u8]) -> bool {
+        (va.len() == vb.len()) &&  // zip stops at the shortest
+            va.iter()
+            .zip(vb)
+            .all(|(a,b)| a == b)
+    }
+
+    #[test]
+    fn test_immediate1() {
+        let operation = Token {
+            t: Some(TokenType::Move),
+            value: "mov".to_string(),
+        };
+        let left = Token {
+            t: Some(TokenType::Value),
+            value: "1".to_string(),
+        };
+        let right = Token {
+            t: Some(TokenType::Register),
+            value: "edx".to_string(),
+        };
+        let instruction = InstructionMove {
+            operation: &operation,
+            left: &left,
+            right: &right,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(&[0xba, 0x01, 0x00], &bytes));
+    }
+}
+
+pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
+    let operation = match tokens[0].t {
+        Some(TokenType::Move) => InstructionMove {
+            operation: &tokens[0],  // TODO check if the token types are correct
+            left: &tokens[1],
+            right: &tokens[2],
+        },
+
+        _ => {
+            return Err(Box::new(CompileError {
+                msg: format!(
+                    "Grammatical error: {}",
+                    tokens.iter().fold("".to_string(), |acc, t| acc.to_owned()
+                        + &format!(" {}", t.value))
+                ),
+            }));
+        }
+    };
+
+    operation.compile()
+}
+
+// Notes:
+// Instruction format (p 505)
+// We won't do:
+// - stick to 1 byte opcodes
+// - mod/rm optionally 1 byte
+// - SIB optional
+// 1B opcode, (1B MODR/M), (1B SIB), (1B displacement), (1B immediate)
+
+// MOV (p 1161)
+// opcode: 8b
+// 3 least significant opcode bits are used to encode the register
+// registers codes (p 574)
