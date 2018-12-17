@@ -18,5 +18,5 @@ use std::env;
 
 fn main() {
     let config = Config::new(env::args().collect()).unwrap();
-    jvo_asm::run(config);
+    jvo_asm::run(config).unwrap();
 }
