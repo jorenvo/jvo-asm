@@ -40,12 +40,12 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
 }
 
 fn serialize(n: u32) -> Vec<u8> {
-    // todo endianness?
+    // this serializes to a little endian byte array
     vec![
-        (n >> 24) as u8,
-        ((n >> 16) & 0xff) as u8,
-        ((n >> 8) & 0xff) as u8,
         (n & 0xff) as u8,
+        ((n >> 8) & 0xff) as u8,
+        ((n >> 16) & 0xff) as u8,
+        (n >> 24) as u8,
     ]
 }
 
@@ -121,34 +121,34 @@ fn create_elf_header() -> Vec<u8> {
     header.append(&mut vec![0x00; 7]);
 
     // Object file type (ET_EXEC)
-    header.append(&mut vec![0x00, 0x02]);
+    header.append(&mut vec![0x02, 0x00]);
 
     // Target architecture x86
-    header.append(&mut vec![0x00, 0x03]);
+    header.append(&mut vec![0x03, 0x00]);
 
     // ELF version 1
-    header.append(&mut vec![0x00, 0x00, 0x00, 0x01]);
+    header.append(&mut serialize(1));
 
     // TODO: entry point
     header.append(&mut serialize(ENTRY_POINT));
 
     // Start of program header table (immediately after this header)
-    header.append(&mut vec![0x00, 0x00, 0x00, 0x34]);
+    header.append(&mut serialize(0x34));
 
     // Start of section header table
-    header.append(&mut vec![0x00, 0x00, 0x00, 0x00]);
+    header.append(&mut serialize(0x00));
 
     // eflags
     header.append(&mut vec![0x00; 4]);
 
     // Size of this header
-    header.append(&mut vec![0x00, 52]);
+    header.append(&mut vec![52, 0x00]);
 
     // e_phentsize: size of a program header table entry
-    header.append(&mut vec![0x00, 32]);
+    header.append(&mut vec![32, 0x00]);
 
     // e_phnum: number of entries in program header table
-    header.append(&mut vec![0x00, 0x01]);
+    header.append(&mut vec![0x01, 0x00]);
 
     // TODO: Size of a section header table entry
     header.append(&mut vec![0x00, 0x00]);
@@ -181,10 +181,10 @@ mod test_elf {
         let v = 0x08049000;
         let serialized = serialize(v);
 
-        assert_eq!(serialized[0], 0x08);
-        assert_eq!(serialized[1], 0x04);
-        assert_eq!(serialized[2], 0x90);
-        assert_eq!(serialized[3], 0x00);
+        assert_eq!(serialized[3], 0x08);
+        assert_eq!(serialized[2], 0x04);
+        assert_eq!(serialized[1], 0x90);
+        assert_eq!(serialized[0], 0x00);
     }
 }
 
