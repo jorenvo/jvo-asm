@@ -89,8 +89,9 @@ impl<'a> Instruction for InstructionMove<'a> {
         opcode |= get_reg_value(self.right)?;
 
         Ok(vec![
-            self.left.value.parse::<u8>().unwrap(),
             opcode,
+            self.left.value.parse::<u8>().unwrap(),
+            0x00,
             0x00,
             0x00,
         ])
@@ -141,7 +142,16 @@ mod test_instruction_move {
         };
 
         let bytes = instruction.compile().unwrap();
-        assert!(vec_compare(&[0x01, 0xba, 0x00, 0x00], &bytes));
+        assert!(vec_compare(
+            &[
+                0xb8 | get_reg_value(&right).unwrap(),
+                0x01,
+                0x00,
+                0x00,
+                0x00
+            ],
+            &bytes
+        ));
     }
 
     #[test]
@@ -165,7 +175,16 @@ mod test_instruction_move {
         };
 
         let bytes = instruction.compile().unwrap();
-        assert!(vec_compare(&[0x00, 0xb8, 0x00, 0x00], &bytes));
+        assert!(vec_compare(
+            &[
+                0xb8 | get_reg_value(&right).unwrap(),
+                0x00,
+                0x00,
+                0x00,
+                0x00
+            ],
+            &bytes
+        ));
     }
 
     #[test]
@@ -184,13 +203,13 @@ mod test_instruction_move {
         };
 
         let bytes = instruction.compile().unwrap();
-        assert!(vec_compare(&[128, 0xcd], &bytes));
+        assert!(vec_compare(&[128, 0xcd, 0x00, 0x00], &bytes));
     }
 }
 
 pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
     let operation: Box<Instruction> = match tokens[0].t {
-         // TODO check if the token types are correct
+        // TODO check if the token types are correct
         Some(TokenType::Move) => Box::new(InstructionMove {
             operation: &tokens[0],
             left: &tokens[1],
