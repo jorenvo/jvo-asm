@@ -49,7 +49,7 @@ fn serialize(n: u32) -> Vec<u8> {
     ]
 }
 
-fn create_program_header() -> Vec<u8> {
+fn create_program_header(program_size: u32) -> Vec<u8> {
     let mut program_header: Vec<u8> = vec![];
     // all members are 4 bytes
     // typedef struct elf32_phdr{
@@ -80,11 +80,11 @@ fn create_program_header() -> Vec<u8> {
     // p_paddr (unspecified on System V, but seems to usually be virtual entry point)
     program_header.append(&mut serialize(VIRTUAL_ENTRY_POINT));
 
-    // p_filesz (TODO: how big is the executable section)
-    program_header.append(&mut serialize(0x04));
+    // p_filesz
+    program_header.append(&mut serialize(program_size));
 
-    // p_memsz (TODO: how big is the executable section)
-    program_header.append(&mut serialize(0x04));
+    // p_memsz
+    program_header.append(&mut serialize(program_size));
 
     // p_flags
     const PF_X_R: u32 = 1 | (1 << 2);
@@ -174,7 +174,7 @@ mod test_elf {
 
     #[test]
     fn test_program_header_length() {
-        assert_eq!(create_program_header().len(), 8 * 4);
+        assert_eq!(create_program_header(0).len(), 8 * 4);
     }
 
     #[test]
@@ -193,8 +193,8 @@ pub fn run(config: Config) -> std::io::Result<()> {
     println!("compile {}", config.filename);
 
     let elf_header = create_elf_header();
-    let program_header = create_program_header();
     let program = process(&config.filename).unwrap();
+    let program_header = create_program_header(program.len() as u32);
 
     let mut file = fs::File::create("a.out")?;
     file.set_permissions(PermissionsExt::from_mode(0o755))?;
