@@ -65,7 +65,7 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         }
     };
 
-    return Ok(token);
+    Ok(token)
 }
 
 pub fn tokenize(line: &str) -> Result<Vec<Token>, Box<error::Error>> {
