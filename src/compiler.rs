@@ -106,7 +106,7 @@ struct InstructionInterrupt<'a> {
 impl<'a> Instruction for InstructionInterrupt<'a> {
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
         // p 1031
-        Ok(vec![self.operand.value.parse::<u8>()?, 0xcd])
+        Ok(vec![0xcd, self.operand.value.parse::<u8>()?, 0x00, 0x00, 0x00])
     }
 }
 
@@ -203,7 +203,7 @@ mod test_instruction_move {
         };
 
         let bytes = instruction.compile().unwrap();
-        assert!(vec_compare(&[128, 0xcd, 0x00, 0x00], &bytes));
+        assert!(vec_compare(&[0xcd, 128, 0x00, 0x00, 0x00], &bytes));
     }
 }
 
