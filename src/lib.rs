@@ -23,7 +23,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::{error, fs};
 use tokenizer::*;
 
-const ENTRY_POINT: u32 = 0x08049000;
+const VIRTUAL_ENTRY_POINT: u32 = 0x08049000;
 
 fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
     let mut program: Vec<u8> = vec![];
@@ -71,23 +71,24 @@ fn create_program_header() -> Vec<u8> {
     program_header.append(&mut serialize(PT_LOAD));
 
     // p_offset
-    program_header.append(&mut serialize(ENTRY_POINT));
+    const PHYSICAL_ENTRY_POINT: u32 = 0x1000; // align on page size
+    program_header.append(&mut serialize(PHYSICAL_ENTRY_POINT));
 
     // p_vaddr
-    program_header.append(&mut serialize(ENTRY_POINT));
+    program_header.append(&mut serialize(VIRTUAL_ENTRY_POINT));
 
-    // p_paddr (unspecified on System V)
-    program_header.append(&mut vec![0x00; 4]);
+    // p_paddr (unspecified on System V, but seems to usually be virtual entry point)
+    program_header.append(&mut serialize(VIRTUAL_ENTRY_POINT));
 
     // p_filesz (TODO: how big is the executable section)
-    program_header.append(&mut vec![0x04, 0x00, 0x00, 0x00]);
+    program_header.append(&mut serialize(0x04));
 
     // p_memsz (TODO: how big is the executable section)
-    program_header.append(&mut vec![0x04, 0x00, 0x00, 0x00]);
+    program_header.append(&mut serialize(0x04));
 
     // p_flags
-    const PF_X: u32 = 1;
-    program_header.append(&mut serialize(PF_X));
+    const PF_X_R: u32 = 1 | (1 << 2);
+    program_header.append(&mut serialize(PF_X_R));
 
     // p_align
     // align on 4KB
@@ -129,8 +130,8 @@ fn create_elf_header() -> Vec<u8> {
     // ELF version 1
     header.append(&mut serialize(1));
 
-    // TODO: entry point
-    header.append(&mut serialize(ENTRY_POINT));
+    // e_entry
+    header.append(&mut serialize(VIRTUAL_ENTRY_POINT));
 
     // Start of program header table (immediately after this header)
     header.append(&mut serialize(0x34));
