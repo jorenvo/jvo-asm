@@ -19,6 +19,7 @@ mod tokenizer;
 use compiler::*;
 use config::*;
 use std::io::Write;
+use std::os::unix::fs::PermissionsExt;
 use std::{error, fs};
 use tokenizer::*;
 
@@ -195,6 +196,8 @@ pub fn run(config: Config) -> std::io::Result<()> {
     let program = process(&config.filename).unwrap();
 
     let mut file = fs::File::create("a.out")?;
+    file.set_permissions(PermissionsExt::from_mode(0o755))?;
+
     file.write_all(&elf_header)?;
     file.write_all(&program_header)?;
     file.write_all(&program)?;
