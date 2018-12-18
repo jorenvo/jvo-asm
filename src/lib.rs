@@ -201,6 +201,11 @@ pub fn run(config: Config) -> std::io::Result<()> {
 
     file.write_all(&elf_header)?;
     file.write_all(&program_header)?;
+
+    // pad 4KB page
+    let padding = vec![0; 0x1000 - elf_header.len() - program_header.len()];
+    file.write_all(&padding)?;
+
     file.write_all(&program)?;
 
     Ok(())
