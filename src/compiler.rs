@@ -208,27 +208,34 @@ mod test_instruction_move {
 }
 
 pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
-    let operation: Box<Instruction> = match tokens[0].t {
-        // TODO check if the token types are correct
-        Some(TokenType::Move) => Box::new(InstructionMove {
-            register: &tokens[0],
-            operation: &tokens[1],
-            operand: &tokens[2],
-        }),
-        Some(TokenType::Interrupt) => Box::new(InstructionInterrupt {
-            operation: &tokens[0],
-            operand: &tokens[1],
-        }),
-        _ => {
-            return Err(Box::new(CompileError {
-                msg: format!(
-                    "Grammatical error: {}",
-                    tokens.iter().fold("".to_string(), |acc, t| acc.to_owned()
-                        + &format!(" {}", t.value))
-                ),
-            }));
-        }
-    };
+    let mut operation: Option<Box<Instruction>> = None;
 
-    operation.compile()
+    for token in tokens.iter() {
+        if token.t == Some(TokenType::Move) {
+            operation = Some(Box::new(InstructionMove {
+                register: &tokens[0],
+                operation: &tokens[1],
+                operand: &tokens[2],
+            }));
+            break;
+        } else if token.t == Some(TokenType::Interrupt) {
+            operation = Some(Box::new(InstructionInterrupt {
+                operation: &tokens[0],
+                operand: &tokens[1],
+            }));
+            break;
+        }
+    }
+
+    if operation.is_some() {
+        operation.unwrap().compile()
+    } else {
+        Err(Box::new(CompileError {
+            msg: format!(
+                "Grammatical error: {}",
+                tokens.iter().fold("".to_string(), |acc, t| acc.to_owned()
+                                   + &format!(" {}", t.value))
+            ),
+        }))
+    }
 }
