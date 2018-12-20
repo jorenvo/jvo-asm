@@ -74,9 +74,9 @@ trait Instruction {
 }
 
 struct InstructionMove<'a> {
+    register: &'a Token,
     operation: &'a Token,
-    left: &'a Token,
-    right: &'a Token,
+    operand: &'a Token,
 }
 
 impl<'a> Instruction for InstructionMove<'a> {
@@ -86,11 +86,11 @@ impl<'a> Instruction for InstructionMove<'a> {
         let mut opcode = 0xb8;
 
         // register is specified in 3 LSb's
-        opcode |= get_reg_value(self.left)?;
+        opcode |= get_reg_value(self.register)?;
 
         Ok(vec![
             opcode,
-            self.right.value.parse::<u8>().unwrap(),
+            self.operand.value.parse::<u8>().unwrap(),
             0x00,
             0x00,
             0x00,
@@ -123,7 +123,7 @@ mod test_instruction_move {
 
     #[test]
     fn test_move_immediate1() {
-        let left = Token {
+        let register = Token {
             t: Some(TokenType::Register),
             value: "⚫".to_string(),
         };
@@ -131,20 +131,20 @@ mod test_instruction_move {
             t: Some(TokenType::Move),
             value: "⬅".to_string(),
         };
-        let right = Token {
+        let operand = Token {
             t: Some(TokenType::Value),
             value: "1".to_string(),
         };
         let instruction = InstructionMove {
+            register: &register,
             operation: &operation,
-            left: &left,
-            right: &right,
+            operand: &operand,
         };
 
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[
-                0xb8 | get_reg_value(&left).unwrap(),
+                0xb8 | get_reg_value(&register).unwrap(),
                 0x01,
                 0x00,
                 0x00,
@@ -156,7 +156,7 @@ mod test_instruction_move {
 
     #[test]
     fn test_move_immediate2() {
-        let left = Token {
+        let register = Token {
             t: Some(TokenType::Register),
             value: "⚪".to_string(),
         };
@@ -164,20 +164,20 @@ mod test_instruction_move {
             t: Some(TokenType::Move),
             value: "⬅".to_string(),
         };
-        let right = Token {
+        let operand = Token {
             t: Some(TokenType::Value),
             value: "0".to_string(),
         };
         let instruction = InstructionMove {
+            register: &register,
             operation: &operation,
-            left: &left,
-            right: &right,
+            operand: &operand,
         };
 
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[
-                0xb8 | get_reg_value(&left).unwrap(),
+                0xb8 | get_reg_value(&register).unwrap(),
                 0x00,
                 0x00,
                 0x00,
@@ -211,9 +211,9 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
     let operation: Box<Instruction> = match tokens[0].t {
         // TODO check if the token types are correct
         Some(TokenType::Move) => Box::new(InstructionMove {
-            operation: &tokens[0],
-            left: &tokens[1],
-            right: &tokens[2],
+            register: &tokens[0],
+            operation: &tokens[1],
+            operand: &tokens[2],
         }),
         Some(TokenType::Interrupt) => Box::new(InstructionInterrupt {
             operation: &tokens[0],
