@@ -38,24 +38,32 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
     };
 
     match word {
-        "ret" => {
+        "↩" => {
             token.t = Some(TokenType::Return);
         }
-        "add" => {
+        "⬆" => {
             token.t = Some(TokenType::Add);
         }
-        "mov" => {
+        "⬅" => {
             token.t = Some(TokenType::Move);
         }
-        "int" => {
+        "❗" => {
             token.t = Some(TokenType::Interrupt);
+        }
+        "⚪" => {
+            token.t = Some(TokenType::Register);
+        }
+        "🔴" => {
+            token.t = Some(TokenType::Register);
+        }
+        "🔵" => {
+            token.t = Some(TokenType::Register);
+        }
+        "⚫" => {
+            token.t = Some(TokenType::Register);
         }
         _ if word.starts_with("$") => {
             token.t = Some(TokenType::Value);
-            token.value.remove(0);
-        }
-        _ if word.starts_with("%") => {
-            token.t = Some(TokenType::Register);
             token.value.remove(0);
         }
         _ => {
@@ -106,7 +114,7 @@ mod test_tokenize {
 
     #[test]
     fn test_syntax_error2() {
-        assert!(tokenize("add $5, x").is_err());
+        assert!(tokenize("$5 ⬆ x").is_err());
     }
 
     fn verify_ret(tokens: &Vec<Token>) {
@@ -116,49 +124,49 @@ mod test_tokenize {
 
     #[test]
     fn test_ret() {
-        let tokens = tokenize("ret").unwrap();
+        let tokens = tokenize("↩").unwrap();
         verify_ret(&tokens);
     }
 
     fn verify_add(tokens: &Vec<Token>) {
         assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].t, Some(TokenType::Add));
+        assert_eq!(tokens[0].t, Some(TokenType::Register));
+        assert_eq!(tokens[0].value, "⚪");
 
-        assert_eq!(tokens[1].t, Some(TokenType::Value));
-        assert_eq!(tokens[1].value, "5");
+        assert_eq!(tokens[1].t, Some(TokenType::Add));
 
-        assert_eq!(tokens[2].t, Some(TokenType::Register));
-        assert_eq!(tokens[2].value, "eax");
+        assert_eq!(tokens[2].t, Some(TokenType::Value));
+        assert_eq!(tokens[2].value, "5");
     }
 
     #[test]
     fn test_add() {
-        let tokens = tokenize("add $5, %eax").unwrap();
+        let tokens = tokenize("⚪ ⬆ $5").unwrap();
         verify_add(&tokens);
     }
 
     #[test]
     fn test_whitespace1() {
-        let tokens = tokenize("ret        ").unwrap();
+        let tokens = tokenize("↩        ").unwrap();
         verify_ret(&tokens);
     }
 
     #[test]
     fn test_whitespace2() {
-        let tokens = tokenize("    ret        ").unwrap();
+        let tokens = tokenize("    ↩        ").unwrap();
         verify_ret(&tokens);
     }
 
     #[test]
     fn test_whitespace3() {
-        let tokens = tokenize("add 	$5   ,    %eax").unwrap();
-        //                         ^ TAB
+        let tokens = tokenize("⚪ 	⬆ $5").unwrap();
+        //                        ^ TAB
         verify_add(&tokens);
     }
 
     #[test]
     fn test_comment() {
-        let tokens = tokenize("ret # some comment").unwrap();
+        let tokens = tokenize("↩ # some comment").unwrap();
         verify_ret(&tokens);
     }
 }
