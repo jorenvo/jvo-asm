@@ -16,6 +16,7 @@
 // Instruction format (p 505)
 
 #![allow(unused_variables, dead_code)]
+use common::TokenType::*;
 use common::*;
 use std::{error, fmt};
 
@@ -70,6 +71,7 @@ fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
 }
 
 trait Instruction {
+    fn validate(&self) -> Result<(), Box<error::Error>>;
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>>;
 }
 
@@ -80,6 +82,10 @@ struct InstructionMove<'a> {
 }
 
 impl<'a> Instruction for InstructionMove<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        Ok(())
+    }
+
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
         // p 1161
         // TODO only supports moving immediate values for now
@@ -104,9 +110,24 @@ struct InstructionInterrupt<'a> {
 }
 
 impl<'a> Instruction for InstructionInterrupt<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        match self.operand.t {
+            Some(Value) => Ok(()),
+            _ => Err(Box::new(CompileError {
+                msg: format!("Grammatical error: {} {}", self.operation, self.operand),
+            })),
+        }
+    }
+
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
         // p 1031
-        Ok(vec![0xcd, self.operand.value.parse::<u8>()?, 0x00, 0x00, 0x00])
+        Ok(vec![
+            0xcd,
+            self.operand.value.parse::<u8>()?,
+            0x00,
+            0x00,
+            0x00,
+        ])
     }
 }
 
@@ -228,13 +249,15 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
     }
 
     if operation.is_some() {
-        operation.unwrap().compile()
+        let operation = operation.unwrap();
+        operation.validate()?;
+        operation.compile()
     } else {
         Err(Box::new(CompileError {
             msg: format!(
                 "Grammatical error: {}",
                 tokens.iter().fold("".to_string(), |acc, t| acc.to_owned()
-                                   + &format!(" {}", t.value))
+                    + &format!(" {}", t.value))
             ),
         }))
     }
