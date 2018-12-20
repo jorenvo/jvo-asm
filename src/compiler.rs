@@ -59,10 +59,10 @@ impl error::Error for CompileError {
 fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
     // p 574
     match token.value.as_str() {
-        "eax" => Ok(0),
-        "ecx" => Ok(1),
-        "edx" => Ok(2),
-        "ebx" => Ok(3),
+        "⚪" => Ok(0),
+        "🔵" => Ok(1),
+        "⚫" => Ok(2),
+        "🔴" => Ok(3),
         _ => Err(Box::new(CompileError {
             msg: format!("{} is not a valid register", token.value),
         })),
@@ -86,11 +86,11 @@ impl<'a> Instruction for InstructionMove<'a> {
         let mut opcode = 0xb8;
 
         // register is specified in 3 LSb's
-        opcode |= get_reg_value(self.right)?;
+        opcode |= get_reg_value(self.left)?;
 
         Ok(vec![
             opcode,
-            self.left.value.parse::<u8>().unwrap(),
+            self.right.value.parse::<u8>().unwrap(),
             0x00,
             0x00,
             0x00,
@@ -123,17 +123,17 @@ mod test_instruction_move {
 
     #[test]
     fn test_move_immediate1() {
+        let left = Token {
+            t: Some(TokenType::Register),
+            value: "⚫".to_string(),
+        };
         let operation = Token {
             t: Some(TokenType::Move),
-            value: "mov".to_string(),
-        };
-        let left = Token {
-            t: Some(TokenType::Value),
-            value: "1".to_string(),
+            value: "⬅".to_string(),
         };
         let right = Token {
-            t: Some(TokenType::Register),
-            value: "edx".to_string(),
+            t: Some(TokenType::Value),
+            value: "1".to_string(),
         };
         let instruction = InstructionMove {
             operation: &operation,
@@ -144,7 +144,7 @@ mod test_instruction_move {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[
-                0xb8 | get_reg_value(&right).unwrap(),
+                0xb8 | get_reg_value(&left).unwrap(),
                 0x01,
                 0x00,
                 0x00,
@@ -156,17 +156,17 @@ mod test_instruction_move {
 
     #[test]
     fn test_move_immediate2() {
+        let left = Token {
+            t: Some(TokenType::Register),
+            value: "⚪".to_string(),
+        };
         let operation = Token {
             t: Some(TokenType::Move),
-            value: "mov".to_string(),
-        };
-        let left = Token {
-            t: Some(TokenType::Value),
-            value: "0".to_string(),
+            value: "⬅".to_string(),
         };
         let right = Token {
-            t: Some(TokenType::Register),
-            value: "eax".to_string(),
+            t: Some(TokenType::Value),
+            value: "0".to_string(),
         };
         let instruction = InstructionMove {
             operation: &operation,
@@ -177,7 +177,7 @@ mod test_instruction_move {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[
-                0xb8 | get_reg_value(&right).unwrap(),
+                0xb8 | get_reg_value(&left).unwrap(),
                 0x00,
                 0x00,
                 0x00,
@@ -191,7 +191,7 @@ mod test_instruction_move {
     fn test_interrupt_linux() {
         let operation = Token {
             t: Some(TokenType::Interrupt),
-            value: "int".to_string(),
+            value: "❗".to_string(),
         };
         let operand = Token {
             t: Some(TokenType::Value),
