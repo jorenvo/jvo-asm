@@ -16,7 +16,6 @@
 // Instruction format (p 505)
 
 #![allow(unused_variables, dead_code)]
-use common::TokenType::*;
 use common::*;
 use std::{error, fmt};
 
@@ -63,6 +62,55 @@ fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
 trait Instruction {
     fn validate(&self) -> Result<(), Box<error::Error>>;
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>>;
+
+    fn format_tokens(&self, tokens: &Vec<&Token>) -> String {
+        tokens.iter().fold("".to_string(), |acc, t| {
+            acc.to_owned() + &format!(" {}", t.value)
+        })
+    }
+
+    fn validate_tokens(
+        &self,
+        expected: Vec<TokenType>,
+        given: Vec<&Token>,
+    ) -> Result<(), Box<error::Error>> {
+        // this shouldn't happen because the compiler already created
+        // the instruction before and probably dropped any excess
+        // tokens.
+        if expected.len() != given.len() {
+            return Err(Box::new(CompileError {
+                msg: format!(
+                    "Grammatical error: {}, incorrect amount of tokens",
+                    self.format_tokens(&given),
+                ),
+            }));
+        }
+
+        for (expected_token, given_token) in expected.iter().zip(given.iter()) {
+            if let Some(ref given_token_t) = given_token.t {
+                if expected_token != given_token_t {
+                    return Err(Box::new(CompileError {
+                        msg: format!(
+                            "Grammatical error: {}, {} should be a {:?}.",
+                            self.format_tokens(&given),
+                            given_token,
+                            expected_token,
+                        ),
+                    }));
+                }
+            } else {
+                return Err(Box::new(CompileError {
+                    msg: format!(
+                        "Grammatical error: {}, expected a {:?}",
+                        self.format_tokens(&given),
+                        expected_token,
+                    ),
+                }));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 struct InstructionMove<'a> {
@@ -73,49 +121,10 @@ struct InstructionMove<'a> {
 
 impl<'a> Instruction for InstructionMove<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
-        let mut check: Result<(), Box<error::Error>> = match self.register.t {
-            Some(Register) => Ok(()),
-            _ => Err(Box::new(CompileError {
-                msg: format!(
-                    "Grammatical error: {} {} {}, {} should be a register.",
-                    self.register, self.operation, self.operand, self.register
-                ),
-            })),
-        };
-
-        if check.is_err() {
-            return check;
-        }
-
-        check = match self.operation.t {
-            Some(Move) => Ok(()),
-            _ => Err(Box::new(CompileError {
-                msg: format!(
-                    "Grammatical error: {} {} {}, {} should be ⬅.",
-                    self.register, self.operation, self.operand, self.operation
-                ),
-            })),
-        };
-
-        if check.is_err() {
-            return check;
-        }
-
-        check = match self.operand.t {
-            Some(Value) => Ok(()),
-            _ => Err(Box::new(CompileError {
-                msg: format!(
-                    "Grammatical error: {} {} {}, {} should be a value.",
-                    self.register, self.operation, self.operand, self.operand
-                ),
-            })),
-        };
-
-        if check.is_err() {
-            return check;
-        }
-
-        Ok(())
+        self.validate_tokens(
+            vec![TokenType::Register, TokenType::Move, TokenType::Value],
+            vec![&self.register, &self.operation, &self.operand],
+        )
     }
 
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
@@ -143,7 +152,7 @@ struct Add<'a> {
     operand: &'a Token,
 }
 
-impl <'a> Instruction for Add<'a> {
+impl<'a> Instruction for Add<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         Ok(())
     }
@@ -160,12 +169,10 @@ struct InstructionInterrupt<'a> {
 
 impl<'a> Instruction for InstructionInterrupt<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
-        match self.operand.t {
-            Some(Value) => Ok(()),
-            _ => Err(Box::new(CompileError {
-                msg: format!("Grammatical error: {} {}", self.operation, self.operand),
-            })),
-        }
+        self.validate_tokens(
+            vec![TokenType::Interrupt, TokenType::Value],
+            vec![&self.operation, &self.operand],
+        )
     }
 
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
@@ -305,6 +312,25 @@ mod test_instructions {
         let operand = Token {
             t: Some(TokenType::Add),
             value: "️".to_string(),
+        };
+        let instruction = InstructionInterrupt {
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let result = instruction.validate();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_interrupt_validate_error2() {
+        let operation = Token {
+            t: Some(TokenType::Interrupt),
+            value: "❗".to_string(),
+        };
+        let operand = Token {
+            t: None,
+            value: "".to_string(),
         };
         let instruction = InstructionInterrupt {
             operation: &operation,
