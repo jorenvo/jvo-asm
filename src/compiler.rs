@@ -37,16 +37,6 @@ impl error::Error for CompileError {
     }
 }
 
-// enum Instruction {
-//     Move,
-//     Add,
-// }
-
-// struct Move {
-//     left: Token,
-//     right: Token,
-// }
-
 // struct Add {
 //     left: Token,
 //     right: Token,
@@ -147,6 +137,22 @@ impl<'a> Instruction for InstructionMove<'a> {
     }
 }
 
+struct Add<'a> {
+    register: &'a Token,
+    operation: &'a Token,
+    operand: &'a Token,
+}
+
+impl <'a> Instruction for Add<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        Ok(())
+    }
+
+    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
+        Ok(vec![])
+    }
+}
+
 struct InstructionInterrupt<'a> {
     operation: &'a Token,
     operand: &'a Token,
@@ -176,7 +182,7 @@ impl<'a> Instruction for InstructionInterrupt<'a> {
 }
 
 #[cfg(test)]
-mod test_instruction_move {
+mod test_instructions {
     use super::*;
 
     fn vec_compare(va: &[u8], vb: &[u8]) -> bool {
