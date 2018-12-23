@@ -83,6 +83,34 @@ struct InstructionMove<'a> {
 
 impl<'a> Instruction for InstructionMove<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
+        let mut check: Result<(), Box<error::Error>> = match self.register.t {
+            Some(Register) => Ok(()),
+            _ => Err(Box::new(CompileError {
+                msg: format!(
+                    "Grammatical error: {} {} {}, {} should be a register.",
+                    self.register, self.operation, self.operand, self.register
+                ),
+            })),
+        };
+
+        if check.is_err() {
+            return check;
+        }
+
+        check = match self.operand.t {
+            Some(Value) => Ok(()),
+            _ => Err(Box::new(CompileError {
+                msg: format!(
+                    "Grammatical error: {} {} {}, {} should be a value.",
+                    self.register, self.operation, self.operand, self.operand
+                ),
+            })),
+        };
+
+        if check.is_err() {
+            return check;
+        }
+
         Ok(())
     }
 
@@ -225,6 +253,92 @@ mod test_instruction_move {
 
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(&[0xcd, 128, 0x00, 0x00, 0x00], &bytes));
+    }
+
+    #[test]
+    fn test_interrupt_validate_ok() {
+        let operation = Token {
+            t: Some(TokenType::Interrupt),
+            value: "❗".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "$123".to_string(),
+        };
+        let instruction = InstructionInterrupt {
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let result = instruction.validate();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_interrupt_validate_error() {
+        let operation = Token {
+            t: Some(TokenType::Interrupt),
+            value: "❗".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Add),
+            value: "️".to_string(),
+        };
+        let instruction = InstructionInterrupt {
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let result = instruction.validate();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_move_validate_ok() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⚪".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Move),
+            value: "⬅".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "0".to_string(),
+        };
+        let instruction = InstructionMove {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let result = instruction.validate();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_move_validate_err() {
+        let register = Token {
+            t: Some(TokenType::Value),
+            value: "123".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Move),
+            value: "⬅".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "0".to_string(),
+        };
+        let instruction = InstructionMove {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let result = instruction.validate();
+        assert!(result.is_err());
     }
 }
 
