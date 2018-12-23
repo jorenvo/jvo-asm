@@ -97,6 +97,20 @@ impl<'a> Instruction for InstructionMove<'a> {
             return check;
         }
 
+        check = match self.operation.t {
+            Some(Move) => Ok(()),
+            _ => Err(Box::new(CompileError {
+                msg: format!(
+                    "Grammatical error: {} {} {}, {} should be ⬅.",
+                    self.register, self.operation, self.operand, self.operation
+                ),
+            })),
+        };
+
+        if check.is_err() {
+            return check;
+        }
+
         check = match self.operand.t {
             Some(Value) => Ok(()),
             _ => Err(Box::new(CompileError {
@@ -115,6 +129,7 @@ impl<'a> Instruction for InstructionMove<'a> {
     }
 
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
+        self.validate()?;
         // p 1161
         // TODO only supports moving immediate values for now
         let mut opcode = 0xb8;
@@ -148,6 +163,7 @@ impl<'a> Instruction for InstructionInterrupt<'a> {
     }
 
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
+        self.validate()?;
         // p 1031
         Ok(vec![
             0xcd,
@@ -364,12 +380,11 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
 
     if operation.is_some() {
         let operation = operation.unwrap();
-        operation.validate()?;
         operation.compile()
     } else {
         Err(Box::new(CompileError {
             msg: format!(
-                "Grammatical error: {}",
+                "Grammatical error: {}, expected instruction",
                 tokens.iter().fold("".to_string(), |acc, t| acc.to_owned()
                     + &format!(" {}", t.value))
             ),
