@@ -64,12 +64,16 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         }
         _ if word.ends_with(":") => {
             token.t = Some(TokenType::Label);
+
             let value_len = token.value.len();
             token.value.remove(value_len - 1);
         }
         _ if word.starts_with("$") => {
             token.t = Some(TokenType::Value);
             token.value.remove(0);
+        }
+        _ if word.parse::<u32>().is_ok() => {
+            token.t = Some(TokenType::Memory);
         }
         _ => {
             return Err(Box::new(TokenizeError {
@@ -148,6 +152,14 @@ mod test_tokenize {
     fn test_add() {
         let tokens = tokenize("⚪ ⬆ $5").unwrap();
         verify_add(&tokens);
+    }
+
+    #[test]
+    fn test_memory () {
+        let tokens = tokenize("321").unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].t, Some(TokenType::Memory));
+        assert_eq!(tokens[0].value, "321");
     }
 
     #[test]
