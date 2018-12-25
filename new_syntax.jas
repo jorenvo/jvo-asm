@@ -1,0 +1,38 @@
+# registers
+⚪: %eax
+🔴: %ebx
+🔵: %ecx
+⚫: %edx
+
+# move
+⚪ ⬅️ $4
+# add
+⚪ ⬆️ $4
+# subtract
+⚪ ⬇️ $4
+# multiply
+⚪ ❌ $4
+# divide
+⚪ ➗ $4
+# call
+📞 my_function
+# return
+↩️
+# interrupt (🛑 is too similar to 🔴)
+❗ $0x80
+# compare
+⚖️ $0x15, 🔵
+# jump
+🦘 my_label
+# jump if greater
+🦘> my_label
+# jump if equal
+🦘= my_label
+# jump if not equal
+🦘!= my_label
+# jump if less
+🦘< my_label
+# push
+📥 $0x80
+# pop
+📤 ⚫
