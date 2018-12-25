@@ -24,6 +24,7 @@ pub enum TokenType {
     Register,
     Return,
     Interrupt,
+    Label,
 }
 
 pub struct Token {

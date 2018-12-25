@@ -62,6 +62,11 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "⚫" => {
             token.t = Some(TokenType::Register);
         }
+        _ if word.ends_with(":") => {
+            token.t = Some(TokenType::Label);
+            let value_len = token.value.len();
+            token.value.remove(value_len - 1);
+        }
         _ if word.starts_with("$") => {
             token.t = Some(TokenType::Value);
             token.value.remove(0);
@@ -143,6 +148,14 @@ mod test_tokenize {
     fn test_add() {
         let tokens = tokenize("⚪ ⬆ $5").unwrap();
         verify_add(&tokens);
+    }
+
+    #[test]
+    fn test_label () {
+        let tokens = tokenize("my_label:").unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].t, Some(TokenType::Label));
+        assert_eq!(tokens[0].value, "my_label");
     }
 
     #[test]
