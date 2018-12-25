@@ -36,11 +36,6 @@ impl error::Error for CompileError {
     }
 }
 
-// struct Add {
-//     left: Token,
-//     right: Token,
-// }
-
 // struct Value {}
 // struct Memory {}
 // struct BasePointerMemory {}
@@ -49,10 +44,10 @@ impl error::Error for CompileError {
 fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
     // p 574
     match token.value.as_str() {
-        "⚪" => Ok(0),
-        "🔵" => Ok(1),
-        "⚫" => Ok(2),
-        "🔴" => Ok(3),
+        "⚪" => Ok(0),  // eax
+        "🔵" => Ok(1), // ecx
+        "⚫" => Ok(2),  // edx
+        "🔴" => Ok(3), // ebx
         _ => Err(Box::new(CompileError {
             msg: format!("{} is not a valid register", token.value),
         })),
@@ -146,19 +141,37 @@ impl<'a> Instruction for InstructionMove<'a> {
     }
 }
 
-struct Add<'a> {
+struct InstructionAdd<'a> {
     register: &'a Token,
     operation: &'a Token,
     operand: &'a Token,
 }
 
-impl<'a> Instruction for Add<'a> {
+impl<'a> Instruction for InstructionAdd<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
-        Ok(())
+        self.validate_tokens(
+            vec![TokenType::Register, TokenType::Add, TokenType::Value],
+            vec![&self.register, &self.operation, &self.operand],
+        )
     }
 
     fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
-        Ok(vec![])
+        self.validate()?;
+        // modr/m p507, p513
+        // p603
+        // todo currently only supports adding immediate values
+        let mod_ = 0b11000000;
+        let reg = 0;
+        let rm = get_reg_value(&self.register).unwrap();
+
+        Ok(vec![
+            0x81, // 32 bit adds
+            mod_ | reg | rm,
+            self.operand.value.parse::<u8>()?, // todo support >1 byte
+            0x00,
+            0x00,
+            0x00,
+        ])
     }
 }
 
@@ -260,6 +273,40 @@ mod test_instructions {
                 0x00,
                 0x00,
                 0x00
+            ],
+            &bytes
+        ));
+    }
+
+    #[test]
+    fn test_add_immediate1() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⚫".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Add),
+            value: "⬆".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "7".to_string(),
+        };
+        let instruction = InstructionAdd {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                0x81,
+                0b11000000 | get_reg_value(&register).unwrap(),
+                0x07,
+                0x00,
+                0x00,
+                0x00,
             ],
             &bytes
         ));
@@ -405,6 +452,13 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
             operation = Some(Box::new(InstructionInterrupt {
                 operation: &tokens[0],
                 operand: &tokens[1],
+            }));
+            break;
+        } else if token.t == Some(TokenType::Add) {
+            operation = Some(Box::new(InstructionAdd {
+                register: &tokens[0],
+                operation: &tokens[1],
+                operand: &tokens[2],
             }));
             break;
         }
