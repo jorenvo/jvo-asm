@@ -31,6 +31,11 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
 
     for line in content.split('\n') {
         let tokens = tokenize(line)?;
+        // line was a comment
+        if tokens.is_empty() {
+            continue;
+        }
+
         let mut bytes = compile(tokens)?;
 
         program.append(&mut bytes);

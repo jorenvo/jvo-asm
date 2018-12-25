@@ -169,4 +169,10 @@ mod test_tokenize {
         let tokens = tokenize("↩ # some comment").unwrap();
         verify_ret(&tokens);
     }
+
+    #[test]
+    fn test_full_line_comment() {
+        let tokens = tokenize("# ↩ some comment").unwrap();
+        assert_eq!(tokens.len(), 0);
+    }
 }
