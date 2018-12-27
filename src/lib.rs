@@ -41,8 +41,13 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
         intermediate_program.append(&mut intermediate);
     }
 
-    let program: Vec<u8> = vec![];
-    for _intermediate in intermediate_program {
+    let mut program: Vec<u8> = vec![];
+    for intermediate in intermediate_program {
+        let mut bytes = match intermediate {
+            IntermediateCode::Byte(b) => vec![b],
+            _ => panic!("Can only compile bytes for now."),
+        };
+        program.append(&mut bytes);
     }
 
     Ok(program)
