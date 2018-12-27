@@ -65,11 +65,15 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "🦘" => {
             token.t = Some(TokenType::Jump);
         }
-        _ if word.ends_with(":") => {
+        _ if word.starts_with("📪") && word.ends_with(":") => {
             token.t = Some(TokenType::Label);
 
-            let value_len = token.value.len();
-            token.value.remove(value_len - 1);
+            let to_trim: &[_] = &[':', '📪'];
+            token.value = token.value.trim_matches(to_trim).to_string();
+        }
+        _ if word.starts_with("✉") => {
+            token.t = Some(TokenType::LabelReference);
+            token.value.remove(0);
         }
         _ if word.starts_with("$") => {
             token.t = Some(TokenType::Value);
@@ -167,7 +171,7 @@ mod test_tokenize {
 
     #[test]
     fn test_label () {
-        let tokens = tokenize("my_label:").unwrap();
+        let tokens = tokenize("📪my_label:").unwrap();
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].t, Some(TokenType::Label));
         assert_eq!(tokens[0].value, "my_label");

@@ -339,24 +339,24 @@ mod test_instructions {
         ));
     }
 
-    #[test]
-    fn test_jump() {
-        let operation = Token {
-            t: Some(TokenType::Jump),
-            value: "🦘".to_string(),
-        };
-        let operand = Token {
-            t: Some(TokenType::Memory),
-            value: "134516736".to_string(),
-        };
-        let instruction = InstructionJump {
-            operation: &operation,
-            operand: &operand,
-        };
+    // #[test]
+    // fn test_jump() {
+    //     let operation = Token {
+    //         t: Some(TokenType::Jump),
+    //         value: "🦘".to_string(),
+    //     };
+    //     let operand = Token {
+    //         t: Some(TokenType::Memory),
+    //         value: "134516736".to_string(),
+    //     };
+    //     let instruction = InstructionJump {
+    //         operation: &operation,
+    //         operand: &operand,
+    //     };
 
-        let bytes = instruction.compile().unwrap();
-        assert!(vec_compare(&[0xe9, 0x08, 0x04, 0x90, 0x00], &bytes));
-    }
+    //     let bytes = instruction.compile().unwrap();
+    //     assert!(vec_compare(&[0xe9, 0x08, 0x04, 0x90, 0x00], &bytes));
+    // }
 
     #[test]
     fn test_interrupt_linux() {

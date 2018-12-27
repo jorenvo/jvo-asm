@@ -23,16 +23,18 @@
 # compare
 ⚖️ $0x15, 🔵
 # jump
-🦘 my_label
+🦘 ✉️my_label
 # jump if greater
-🦘> my_label
+🦘> ✉️my_label
 # jump if equal
-🦘= my_label
+🦘= ✉️my_label
 # jump if not equal
-🦘!= my_label
+🦘!= ✉️my_label
 # jump if less
-🦘< my_label
+🦘< ✉️my_label
 # push
 📥 $0x80
 # pop
 📤 ⚫
+# label definition
+📪my_label:
