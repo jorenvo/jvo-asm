@@ -40,6 +40,11 @@ impl fmt::Display for Token {
     }
 }
 
+pub enum IntermediateCode {
+    Byte(u8),
+    Displacement(String),
+}
+
 // TODO: replace all serialize_* functions with native
 // int_to_from_bytes when 1.32.0 is released.
 // https://github.com/rust-lang/rust/commit/68a26ec647147d70bcd7f0e7f56a0bf9fedb5f06

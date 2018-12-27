@@ -56,7 +56,7 @@ fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
 
 trait Instruction {
     fn validate(&self) -> Result<(), Box<error::Error>>;
-    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>>;
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>>;
 
     fn format_tokens(&self, tokens: &Vec<&Token>) -> String {
         tokens.iter().fold("".to_string(), |acc, t| {
@@ -122,7 +122,7 @@ impl<'a> Instruction for InstructionMove<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
         // p 1161
         // TODO only supports moving immediate values for now
@@ -132,11 +132,11 @@ impl<'a> Instruction for InstructionMove<'a> {
         opcode |= get_reg_value(self.register)?;
 
         Ok(vec![
-            opcode,
-            self.operand.value.parse::<u8>().unwrap(),
-            0x00,
-            0x00,
-            0x00,
+            IntermediateCode::Byte(opcode),
+            IntermediateCode::Byte(self.operand.value.parse::<u8>().unwrap()),
+            IntermediateCode::Byte(0x00),
+            IntermediateCode::Byte(0x00),
+            IntermediateCode::Byte(0x00),
         ])
     }
 }
@@ -155,7 +155,7 @@ impl<'a> Instruction for InstructionAdd<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
         // modr/m p507, p513
         // p603
@@ -165,12 +165,12 @@ impl<'a> Instruction for InstructionAdd<'a> {
         let rm = get_reg_value(&self.register).unwrap();
 
         Ok(vec![
-            0x81, // 32 bit adds
-            mod_ | reg | rm,
-            self.operand.value.parse::<u8>()?, // todo support >1 byte
-            0x00,
-            0x00,
-            0x00,
+            IntermediateCode::Byte(0x81), // 32 bit adds
+            IntermediateCode::Byte(mod_ | reg | rm),
+            IntermediateCode::Byte(self.operand.value.parse::<u8>()?), // todo support >1 byte
+            IntermediateCode::Byte(0x00),
+            IntermediateCode::Byte(0x00),
+            IntermediateCode::Byte(0x00),
         ])
     }
 }
@@ -188,17 +188,14 @@ impl<'a> Instruction for InstructionJump<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
         // p 1063
         // p 87 specifying an offset
-        let mut bytes = vec![0xe9];
-
-        let temp_offset: i32 = -21;
-        // bytes.append(&mut serialize_signed_le(self.operand.value.parse::<u32>().unwrap()));
-        let mut address = serialize_signed_le(-21);
-        bytes.append(&mut address);
-        Ok(bytes)
+        Ok(vec![
+            IntermediateCode::Byte(0xe9),
+            IntermediateCode::Displacement(self.operand.value.clone()),
+        ])
     }
 }
 
@@ -215,15 +212,15 @@ impl<'a> Instruction for InstructionInterrupt<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
         // p 1031
         Ok(vec![
-            0xcd,
-            self.operand.value.parse::<u8>()?,
-            0x00,
-            0x00,
-            0x00,
+            IntermediateCode::Byte(0xcd),
+            IntermediateCode::Byte(self.operand.value.parse::<u8>()?),
+            IntermediateCode::Byte(0x00),
+            IntermediateCode::Byte(0x00),
+            IntermediateCode::Byte(0x00),
         ])
     }
 }
@@ -483,7 +480,7 @@ mod test_instructions {
     }
 }
 
-pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
+pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
     let mut operation: Option<Box<Instruction>> = None;
 
     for token in tokens.iter() {

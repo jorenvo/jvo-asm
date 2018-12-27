@@ -16,7 +16,7 @@ mod compiler;
 pub mod config;
 mod tokenizer;
 
-use common::serialize_le;
+use common::{serialize_le, IntermediateCode};
 use compiler::*;
 use config::*;
 use std::io::Write;
@@ -27,7 +27,7 @@ use tokenizer::*;
 const VIRTUAL_ENTRY_POINT: u32 = 0x08049000;
 
 fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
-    let mut program: Vec<u8> = vec![];
+    let mut intermediate_program: Vec<IntermediateCode> = vec![];
     let content = fs::read_to_string(filename)?;
 
     for line in content.split('\n') {
@@ -37,9 +37,12 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
             continue;
         }
 
-        let mut bytes = compile(tokens)?;
+        let mut intermediate = compile(tokens)?;
+        intermediate_program.append(&mut intermediate);
+    }
 
-        program.append(&mut bytes);
+    let program: Vec<u8> = vec![];
+    for _intermediate in intermediate_program {
     }
 
     Ok(program)
