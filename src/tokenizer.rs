@@ -62,6 +62,9 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "⚫" => {
             token.t = Some(TokenType::Register);
         }
+        "🦘" => {
+            token.t = Some(TokenType::Jump);
+        }
         _ if word.ends_with(":") => {
             token.t = Some(TokenType::Label);
 
@@ -168,6 +171,15 @@ mod test_tokenize {
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].t, Some(TokenType::Label));
         assert_eq!(tokens[0].value, "my_label");
+    }
+
+    #[test]
+    fn test_jump () {
+        let tokens = tokenize("🦘 123").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].t, Some(TokenType::Jump));
+        assert_eq!(tokens[1].t, Some(TokenType::Memory));
+        assert_eq!(tokens[1].value, "123");
     }
 
     #[test]

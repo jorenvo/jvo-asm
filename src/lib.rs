@@ -16,6 +16,7 @@ mod compiler;
 pub mod config;
 mod tokenizer;
 
+use common::serialize_le;
 use compiler::*;
 use config::*;
 use std::io::Write;
@@ -44,16 +45,6 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
     Ok(program)
 }
 
-fn serialize(n: u32) -> Vec<u8> {
-    // this serializes to a little endian byte array
-    vec![
-        (n & 0xff) as u8,
-        ((n >> 8) & 0xff) as u8,
-        ((n >> 16) & 0xff) as u8,
-        (n >> 24) as u8,
-    ]
-}
-
 fn create_program_header(program_size: u32) -> Vec<u8> {
     let mut program_header: Vec<u8> = vec![];
     // all members are 4 bytes
@@ -73,31 +64,31 @@ fn create_program_header(program_size: u32) -> Vec<u8> {
 
     // p_type
     const PT_LOAD: u32 = 1;
-    program_header.append(&mut serialize(PT_LOAD));
+    program_header.append(&mut serialize_le(PT_LOAD));
 
     // p_offset
     const PHYSICAL_ENTRY_POINT: u32 = 0x1000; // align on page size
-    program_header.append(&mut serialize(PHYSICAL_ENTRY_POINT));
+    program_header.append(&mut serialize_le(PHYSICAL_ENTRY_POINT));
 
     // p_vaddr
-    program_header.append(&mut serialize(VIRTUAL_ENTRY_POINT));
+    program_header.append(&mut serialize_le(VIRTUAL_ENTRY_POINT));
 
     // p_paddr (unspecified on System V, but seems to usually be virtual entry point)
-    program_header.append(&mut serialize(VIRTUAL_ENTRY_POINT));
+    program_header.append(&mut serialize_le(VIRTUAL_ENTRY_POINT));
 
     // p_filesz
-    program_header.append(&mut serialize(program_size));
+    program_header.append(&mut serialize_le(program_size));
 
     // p_memsz
-    program_header.append(&mut serialize(program_size));
+    program_header.append(&mut serialize_le(program_size));
 
     // p_flags
     const PF_X_R: u32 = 1 | (1 << 2);
-    program_header.append(&mut serialize(PF_X_R));
+    program_header.append(&mut serialize_le(PF_X_R));
 
     // p_align
     // align on 4KB
-    program_header.append(&mut serialize(0x1000));
+    program_header.append(&mut serialize_le(0x1000));
 
     program_header
 }
@@ -133,16 +124,16 @@ fn create_elf_header() -> Vec<u8> {
     header.append(&mut vec![0x03, 0x00]);
 
     // ELF version 1
-    header.append(&mut serialize(1));
+    header.append(&mut serialize_le(1));
 
     // e_entry
-    header.append(&mut serialize(VIRTUAL_ENTRY_POINT));
+    header.append(&mut serialize_le(VIRTUAL_ENTRY_POINT));
 
     // Start of program header table (immediately after this header)
-    header.append(&mut serialize(0x34));
+    header.append(&mut serialize_le(0x34));
 
     // Start of section header table
-    header.append(&mut serialize(0x00));
+    header.append(&mut serialize_le(0x00));
 
     // eflags
     header.append(&mut vec![0x00; 4]);
@@ -180,17 +171,6 @@ mod test_elf {
     #[test]
     fn test_program_header_length() {
         assert_eq!(create_program_header(0).len(), 8 * 4);
-    }
-
-    #[test]
-    fn test_serialize() {
-        let v = 0x08049000;
-        let serialized = serialize(v);
-
-        assert_eq!(serialized[3], 0x08);
-        assert_eq!(serialized[2], 0x04);
-        assert_eq!(serialized[1], 0x90);
-        assert_eq!(serialized[0], 0x00);
     }
 }
 

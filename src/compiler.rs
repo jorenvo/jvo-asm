@@ -175,6 +175,33 @@ impl<'a> Instruction for InstructionAdd<'a> {
     }
 }
 
+struct InstructionJump<'a> {
+    operation: &'a Token,
+    operand: &'a Token,
+}
+
+impl<'a> Instruction for InstructionJump<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        self.validate_tokens(
+            vec![TokenType::Jump, TokenType::Memory],
+            vec![&self.operation, &self.operand],
+        )
+    }
+
+    fn compile(&self) -> Result<Vec<u8>, Box<error::Error>> {
+        self.validate()?;
+        // p 1063
+        // p 87 specifying an offset
+        let mut bytes = vec![0xe9];
+
+        let temp_offset: i32 = -21;
+        // bytes.append(&mut serialize_signed_le(self.operand.value.parse::<u32>().unwrap()));
+        let mut address = serialize_signed_le(-21);
+        bytes.append(&mut address);
+        Ok(bytes)
+    }
+}
+
 struct InstructionInterrupt<'a> {
     operation: &'a Token,
     operand: &'a Token,
@@ -310,6 +337,25 @@ mod test_instructions {
             ],
             &bytes
         ));
+    }
+
+    #[test]
+    fn test_jump() {
+        let operation = Token {
+            t: Some(TokenType::Jump),
+            value: "🦘".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Memory),
+            value: "134516736".to_string(),
+        };
+        let instruction = InstructionJump {
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(&[0xe9, 0x08, 0x04, 0x90, 0x00], &bytes));
     }
 
     #[test]
@@ -459,6 +505,12 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<u8>, Box<error::Error>> {
                 register: &tokens[0],
                 operation: &tokens[1],
                 operand: &tokens[2],
+            }));
+            break;
+        } else if token.t == Some(TokenType::Jump) {
+            operation = Some(Box::new(InstructionJump {
+                operation: &tokens[0],
+                operand: &tokens[1],
             }));
             break;
         }
