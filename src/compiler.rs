@@ -229,7 +229,7 @@ impl<'a> Instruction for InstructionInterrupt<'a> {
 mod test_instructions {
     use super::*;
 
-    fn vec_compare(va: &[u8], vb: &[u8]) -> bool {
+    fn vec_compare(va: &[IntermediateCode], vb: &[IntermediateCode]) -> bool {
         (va.len() == vb.len()) &&  // zip stops at the shortest
             va.iter()
             .zip(vb)
@@ -259,11 +259,11 @@ mod test_instructions {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[
-                0xb8 | get_reg_value(&register).unwrap(),
-                0x01,
-                0x00,
-                0x00,
-                0x00
+                IntermediateCode::Byte(0xb8 | get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0x01),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
             ],
             &bytes
         ));
@@ -292,11 +292,11 @@ mod test_instructions {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[
-                0xb8 | get_reg_value(&register).unwrap(),
-                0x00,
-                0x00,
-                0x00,
-                0x00
+                IntermediateCode::Byte(0xb8 | get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
             ],
             &bytes
         ));
@@ -325,12 +325,12 @@ mod test_instructions {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[
-                0x81,
-                0b11000000 | get_reg_value(&register).unwrap(),
-                0x07,
-                0x00,
-                0x00,
-                0x00,
+                IntermediateCode::Byte(0x81),
+                IntermediateCode::Byte(0b11000000 | get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0x07),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
             ],
             &bytes
         ));
@@ -371,7 +371,16 @@ mod test_instructions {
         };
 
         let bytes = instruction.compile().unwrap();
-        assert!(vec_compare(&[0xcd, 128, 0x00, 0x00, 0x00], &bytes));
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0xcd),
+                IntermediateCode::Byte(128),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00)
+            ],
+            &bytes
+        ));
     }
 
     #[test]

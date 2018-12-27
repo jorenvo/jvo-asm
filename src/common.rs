@@ -40,6 +40,7 @@ impl fmt::Display for Token {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum IntermediateCode {
     Byte(u8),
     Displacement(String),
