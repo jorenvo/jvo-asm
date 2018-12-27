@@ -183,7 +183,7 @@ struct InstructionJump<'a> {
 impl<'a> Instruction for InstructionJump<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
-            vec![TokenType::Jump, TokenType::Memory],
+            vec![TokenType::Jump, TokenType::LabelReference],
             vec![&self.operation, &self.operand],
         )
     }
@@ -337,23 +337,29 @@ mod test_instructions {
     }
 
     // #[test]
-    // fn test_jump() {
-    //     let operation = Token {
-    //         t: Some(TokenType::Jump),
-    //         value: "🦘".to_string(),
-    //     };
-    //     let operand = Token {
-    //         t: Some(TokenType::Memory),
-    //         value: "134516736".to_string(),
-    //     };
-    //     let instruction = InstructionJump {
-    //         operation: &operation,
-    //         operand: &operand,
-    //     };
+    fn test_jump() {
+        let operation = Token {
+            t: Some(TokenType::Jump),
+            value: "🦘".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Memory),
+            value: "test_label".to_string(),
+        };
+        let instruction = InstructionJump {
+            operation: &operation,
+            operand: &operand,
+        };
 
-    //     let bytes = instruction.compile().unwrap();
-    //     assert!(vec_compare(&[0xe9, 0x08, 0x04, 0x90, 0x00], &bytes));
-    // }
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0xe9),
+                IntermediateCode::Displacement("test_label".to_string())
+            ],
+            &bytes
+        ));
+    }
 
     #[test]
     fn test_interrupt_linux() {
