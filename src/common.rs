@@ -11,10 +11,10 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#![allow(unused)]
 use std::fmt;
 
-#[allow(unused)]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenType {
     Move,
     Add,
@@ -29,6 +29,7 @@ pub enum TokenType {
     LabelReference,
 }
 
+#[derive(Clone)]
 pub struct Token {
     pub t: Option<TokenType>,
     pub value: String,
@@ -40,10 +41,12 @@ impl fmt::Display for Token {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum IntermediateCode {
     Byte(u8),
-    Displacement(String),
+    Displacement32(String),
+
+    Padding,
 }
 
 // TODO: replace all serialize_* functions with native

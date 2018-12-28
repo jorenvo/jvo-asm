@@ -194,7 +194,7 @@ impl<'a> Instruction for InstructionJump<'a> {
         // p 87 specifying an offset
         Ok(vec![
             IntermediateCode::Byte(0xe9),
-            IntermediateCode::Displacement(self.operand.value.clone()),
+            IntermediateCode::Displacement32(self.operand.value.clone()),
         ])
     }
 }
@@ -355,7 +355,7 @@ mod test_instructions {
         assert!(vec_compare(
             &[
                 IntermediateCode::Byte(0xe9),
-                IntermediateCode::Displacement("test_label".to_string())
+                IntermediateCode::Displacement32("test_label".to_string())
             ],
             &bytes
         ));

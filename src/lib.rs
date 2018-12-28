@@ -16,9 +16,10 @@ mod compiler;
 pub mod config;
 mod tokenizer;
 
-use common::{serialize_le, IntermediateCode};
+use common::{serialize_le, serialize_signed_le, IntermediateCode, TokenType};
 use compiler::*;
 use config::*;
+use std::collections::HashMap;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::{error, fs};
@@ -27,6 +28,8 @@ use tokenizer::*;
 const VIRTUAL_ENTRY_POINT: u32 = 0x08049000;
 
 fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
+    let mut labels = HashMap::new();
+    let mut intermediate_i_to_start = HashMap::new();
     let mut intermediate_program: Vec<IntermediateCode> = vec![];
     let content = fs::read_to_string(filename)?;
 
@@ -37,15 +40,43 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
             continue;
         }
 
-        let mut intermediate = compile(tokens)?;
-        intermediate_program.append(&mut intermediate);
+        if tokens.len() == 1 && tokens[0].clone().t.unwrap() == TokenType::Label {
+            // labels should point to the next instruction
+            labels.insert(tokens[0].value.clone(), intermediate_program.len());
+        } else {
+            let mut intermediate_instruction = compile(tokens)?;
+            let mut padded_intermediate_instruction = vec![];
+            for (i, intermediate) in intermediate_instruction.iter().enumerate() {
+                padded_intermediate_instruction.push(intermediate.clone());
+                match intermediate {
+                    IntermediateCode::Displacement32(_) => {
+                        intermediate_i_to_start.insert(intermediate_program.len() + i, i);
+                        padded_intermediate_instruction
+                            .append(&mut vec![IntermediateCode::Padding; 3]);
+                    }
+                    _ => {}
+                }
+            }
+            intermediate_program.append(&mut padded_intermediate_instruction);
+        }
     }
 
     let mut program: Vec<u8> = vec![];
-    for intermediate in intermediate_program {
+    for (i, intermediate) in intermediate_program.iter().enumerate() {
         let mut bytes = match intermediate {
-            IntermediateCode::Byte(b) => vec![b],
-            _ => panic!("Can only compile bytes for now."),
+            IntermediateCode::Byte(b) => vec![*b],
+            IntermediateCode::Displacement32(s) => {
+                // find the start of this instruction
+                let instruction_start = i as i32 - *intermediate_i_to_start.get(&i).unwrap() as i32;
+                match labels.get(s) {
+                    Some(target_i) => {
+                        let displacement = *target_i as i32 - instruction_start - 5;
+                        serialize_signed_le(displacement)
+                    }
+                    None => panic!("Unknown label {}", s),
+                }
+            }
+            IntermediateCode::Padding => vec![],
         };
         program.append(&mut bytes);
     }
