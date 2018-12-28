@@ -47,7 +47,9 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
 
     // This maps the index of a displacement in the intermediate
     // program to an offset so that:
-    // displacement index - offset = index where instruction start
+    // displacement index - offset = index where instruction ends
+    // This is done because RIP addressing is relative to the *end* of
+    // the current instruction.
     let mut intermediate_index_instruction_offset = HashMap::new();
 
     for line in content.split('\n') {
@@ -63,18 +65,33 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
         } else {
             let mut intermediate_instruction = compile(tokens)?;
             let mut padded_intermediate_instruction = vec![];
+            let mut displacements = vec![];
             for (i, intermediate) in intermediate_instruction.iter().enumerate() {
                 padded_intermediate_instruction.push(intermediate.clone());
                 match intermediate {
                     IntermediateCode::Displacement32(_) => {
-                        intermediate_index_instruction_offset
-                            .insert(intermediate_program.len() + i, i);
+                        displacements.push(padded_intermediate_instruction.len() - 1);
                         padded_intermediate_instruction
                             .append(&mut vec![IntermediateCode::Padding; 3]);
                     }
                     _ => {}
                 }
             }
+
+            for displacement in displacements {
+                // println!(
+                //     "from displacement {} to end is {} - {} = {}",
+                //     displacement,
+                //     padded_intermediate_instruction.len(),
+                //     displacement,
+                //     padded_intermediate_instruction.len() - displacement
+                // );
+                intermediate_index_instruction_offset.insert(
+                    intermediate_program.len() + displacement,
+                    padded_intermediate_instruction.len() - displacement,
+                );
+            }
+
             intermediate_program.append(&mut padded_intermediate_instruction);
         }
     }
@@ -87,9 +104,13 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
             IntermediateCode::Byte(b) => vec![*b],
             IntermediateCode::Displacement32(s) => match labels.get(s) {
                 Some(target_i) => {
-                    let instruction_start =
-                        i as i32 - *intermediate_index_instruction_offset.get(&i).unwrap() as i32;
-                    let displacement = *target_i as i32 - instruction_start - 5;
+                    let instruction_end =
+                        i as i32 + *intermediate_index_instruction_offset.get(&i).unwrap() as i32;
+                    let displacement = *target_i as i32 - instruction_end;
+                    // println!(
+                    //     "instruction end is {}\ntarget is {} at {}\ndisplacement is {}\n",
+                    //     instruction_end, s, target_i, displacement
+                    // );
                     serialize_signed_le(displacement)
                 }
                 None => panic!("Unknown label {}", s),
