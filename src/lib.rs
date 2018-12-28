@@ -28,10 +28,27 @@ use tokenizer::*;
 const VIRTUAL_ENTRY_POINT: u32 = 0x08049000;
 
 fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
-    let mut labels = HashMap::new();
-    let mut intermediate_i_to_start = HashMap::new();
-    let mut intermediate_program: Vec<IntermediateCode> = vec![];
     let content = fs::read_to_string(filename)?;
+
+    // The intermediate program consists of IntermediateCode. The
+    // instructions are responsible for compiling
+    // IntermediateCode. The intermediate program is padded so that
+    // displacements take up the right amount of space (e.g. 1
+    // Displacement32 + 3 Padding). This way the index in the
+    // intermediate program vector can be used for offset
+    // calculations. Note that you cannot use the compiled program for
+    // this. You do not know addresses of instructions not yet
+    // compiled if we didn't do this padding.
+    let mut intermediate_program: Vec<IntermediateCode> = vec![];
+
+    // This maps a label String to the index in the intermediate
+    // program it points to.
+    let mut labels = HashMap::new();
+
+    // This maps the index of a displacement in the intermediate
+    // program to an offset so that:
+    // displacement index - offset = index where instruction start
+    let mut intermediate_index_instruction_offset = HashMap::new();
 
     for line in content.split('\n') {
         let tokens = tokenize(line)?;
@@ -50,7 +67,8 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
                 padded_intermediate_instruction.push(intermediate.clone());
                 match intermediate {
                     IntermediateCode::Displacement32(_) => {
-                        intermediate_i_to_start.insert(intermediate_program.len() + i, i);
+                        intermediate_index_instruction_offset
+                            .insert(intermediate_program.len() + i, i);
                         padded_intermediate_instruction
                             .append(&mut vec![IntermediateCode::Padding; 3]);
                     }
@@ -61,21 +79,21 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
         }
     }
 
+    // This contains the compiled program. It is the intermediate
+    // program with all the intermediate symbols translated to bytes.
     let mut program: Vec<u8> = vec![];
     for (i, intermediate) in intermediate_program.iter().enumerate() {
         let mut bytes = match intermediate {
             IntermediateCode::Byte(b) => vec![*b],
-            IntermediateCode::Displacement32(s) => {
-                // find the start of this instruction
-                let instruction_start = i as i32 - *intermediate_i_to_start.get(&i).unwrap() as i32;
-                match labels.get(s) {
-                    Some(target_i) => {
-                        let displacement = *target_i as i32 - instruction_start - 5;
-                        serialize_signed_le(displacement)
-                    }
-                    None => panic!("Unknown label {}", s),
+            IntermediateCode::Displacement32(s) => match labels.get(s) {
+                Some(target_i) => {
+                    let instruction_start =
+                        i as i32 - *intermediate_index_instruction_offset.get(&i).unwrap() as i32;
+                    let displacement = *target_i as i32 - instruction_start - 5;
+                    serialize_signed_le(displacement)
                 }
-            }
+                None => panic!("Unknown label {}", s),
+            },
             IntermediateCode::Padding => vec![],
         };
         program.append(&mut bytes);
