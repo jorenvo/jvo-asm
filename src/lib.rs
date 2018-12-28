@@ -66,7 +66,7 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
             let mut intermediate_instruction = compile(tokens)?;
             let mut padded_intermediate_instruction = vec![];
             let mut displacements = vec![];
-            for (i, intermediate) in intermediate_instruction.iter().enumerate() {
+            for intermediate in intermediate_instruction {
                 padded_intermediate_instruction.push(intermediate.clone());
                 match intermediate {
                     IntermediateCode::Displacement32(_) => {
