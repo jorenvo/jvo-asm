@@ -218,9 +218,6 @@ impl<'a> Instruction for InstructionInterrupt<'a> {
         Ok(vec![
             IntermediateCode::Byte(0xcd),
             IntermediateCode::Byte(self.operand.value.parse::<u8>()?),
-            IntermediateCode::Byte(0x00),
-            IntermediateCode::Byte(0x00),
-            IntermediateCode::Byte(0x00),
         ])
     }
 }
@@ -381,9 +378,6 @@ mod test_instructions {
             &[
                 IntermediateCode::Byte(0xcd),
                 IntermediateCode::Byte(128),
-                IntermediateCode::Byte(0x00),
-                IntermediateCode::Byte(0x00),
-                IntermediateCode::Byte(0x00)
             ],
             &bytes
         ));
