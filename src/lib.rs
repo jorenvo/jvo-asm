@@ -212,6 +212,7 @@ fn create_section_header_entry(
 
 fn create_section_header(program_size: u32, strtable_size: u32) -> Vec<u8> {
     let mut section_header: Vec<u8> = vec![];
+    const SHT_NULL: u32 = 0x00;
     const SHT_PROGBITS: u32 = 0x01;
     const SHT_STRTAB: u32 = 0x03;
     const SHF_ALLOC: u32 = 0x02;
@@ -221,6 +222,10 @@ fn create_section_header(program_size: u32, strtable_size: u32) -> Vec<u8> {
 
     // todo make dynamic
     let strtab_strtab_index: u32 = 0x01 + ".text\0".to_string().len() as u32;
+
+    section_header.append(&mut create_section_header_entry(
+        0x00, SHT_NULL, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ));
 
     section_header.append(&mut create_section_header_entry(
         STRTAB_TEXT_INDEX,
@@ -356,10 +361,10 @@ fn create_elf_header() -> Vec<u8> {
     header.append(&mut vec![40, 0x00]);
 
     // e_shnum: number of entries in section header table
-    header.append(&mut vec![0x02, 0x00]);
+    header.append(&mut vec![0x03, 0x00]);
 
     // e_shstrndx: index of section header table entry that contains section names
-    header.append(&mut vec![0x01, 0x00]);
+    header.append(&mut vec![0x02, 0x00]);
 
     header
 }
@@ -375,7 +380,14 @@ mod test_elf {
 
     #[test]
     fn test_section_header_length() {
-        assert_eq!(create_section_header(0).len(), 10 * 4);
+        const BYTES_PER_FIELD: usize = 4;
+        const FIELDS_PER_ENTRY: usize = 10;
+        const ENTRIES: usize = 3;
+
+        assert_eq!(
+            create_section_header(0, 0).len(),
+            BYTES_PER_FIELD * FIELDS_PER_ENTRY * ENTRIES
+        );
     }
 
     #[test]
