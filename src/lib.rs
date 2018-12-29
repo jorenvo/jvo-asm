@@ -25,6 +25,9 @@ use std::os::unix::fs::PermissionsExt;
 use std::{error, fs};
 use tokenizer::*;
 
+const PHYSICAL_ENTRY_POINT: u32 = 0x1000; // align on page size
+const STRTABLE_PHYSICAL_ENTRY_POINT: u32 = 0x400;
+
 const VIRTUAL_ENTRY_POINT: u32 = 0x08049000;
 
 fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
@@ -82,12 +85,10 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
         tokens = tokens
             .into_iter()
             .map(|token| match token.t {
-                Some(TokenType::ConstantReference) => {
-                    match constants.get(&token.value) {
-                        Some(token) => token.clone(),
-                        _ => panic!("ConstantReference {} not found", token.value),
-                    }
-                }
+                Some(TokenType::ConstantReference) => match constants.get(&token.value) {
+                    Some(token) => token.clone(),
+                    _ => panic!("ConstantReference {} not found", token.value),
+                },
                 _ => token,
             })
             .collect();
@@ -100,8 +101,7 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
             match intermediate {
                 IntermediateCode::Displacement32(_) => {
                     displacements.push(padded_intermediate_instruction.len() - 1);
-                    padded_intermediate_instruction
-                        .append(&mut vec![IntermediateCode::Padding; 3]);
+                    padded_intermediate_instruction.append(&mut vec![IntermediateCode::Padding; 3]);
                 }
                 _ => {}
             }
@@ -140,6 +140,117 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
     Ok(program)
 }
 
+fn create_string_table(strings: Vec<&str>) -> Vec<u8> {
+    let mut table: Vec<u8> = vec![0x00]; // first byte is defined to be null
+    for s in strings {
+        table.extend(s.bytes());
+        table.push(0x00);
+    }
+
+    table
+}
+
+fn create_section_header_entry(
+    sh_name: u32,
+    sh_type: u32,
+    sh_flags: u32,
+    sh_addr: u32,
+    sh_offset: u32,
+    sh_size: u32,
+    sh_link: u32,
+    sh_info: u32,
+    sh_addralign: u32,
+    sh_entsize: u32,
+) -> Vec<u8> {
+    let mut entry: Vec<u8> = vec![];
+    // typedef struct
+    // {
+    //     Elf32_Word    sh_name;                /* Section name (string tbl index) */
+    //     Elf32_Word    sh_type;                /* Section type */
+    //     Elf32_Word    sh_flags;               /* Section flags */
+    //     Elf32_Addr    sh_addr;                /* Section virtual addr at execution */
+    //     Elf32_Off     sh_offset;              /* Section file offset */
+    //     Elf32_Word    sh_size;                /* Section size in bytes */
+    //     Elf32_Word    sh_link;                /* Link to another section */
+    //     Elf32_Word    sh_info;                /* Additional section information */
+    //     Elf32_Word    sh_addralign;           /* Section alignment */
+    //     Elf32_Word    sh_entsize;             /* Entry size if section holds table */
+    // } Elf32_Shdr;
+
+    // sh_name
+    entry.append(&mut serialize_le(sh_name));
+
+    // sh_type
+    entry.append(&mut serialize_le(sh_type));
+
+    // sh_flags
+    entry.append(&mut serialize_le(sh_flags));
+
+    // sh_addr
+    entry.append(&mut serialize_le(sh_addr));
+
+    // sh_offset
+    entry.append(&mut serialize_le(sh_offset));
+
+    // sh_size
+    entry.append(&mut serialize_le(sh_size));
+
+    // sh_link
+    entry.append(&mut serialize_le(sh_link));
+
+    // sh_info
+    entry.append(&mut serialize_le(sh_info));
+
+    // sh_addralign
+    entry.append(&mut serialize_le(sh_addralign));
+
+    // sh_entsize
+    entry.append(&mut serialize_le(sh_entsize));
+
+    entry
+}
+
+fn create_section_header(program_size: u32, strtable_size: u32) -> Vec<u8> {
+    let mut section_header: Vec<u8> = vec![];
+    const SHT_PROGBITS: u32 = 0x01;
+    const SHT_STRTAB: u32 = 0x03;
+    const SHF_ALLOC: u32 = 0x02;
+    const SHF_EXECINSTR: u32 = 0x04;
+
+    const STRTAB_TEXT_INDEX: u32 = 0x01;
+
+    // todo make dynamic
+    let strtab_strtab_index: u32 = 0x01 + ".text\0".to_string().len() as u32;
+
+    section_header.append(&mut create_section_header_entry(
+        STRTAB_TEXT_INDEX,
+        SHT_PROGBITS,
+        SHF_ALLOC | SHF_EXECINSTR,
+        VIRTUAL_ENTRY_POINT,
+        PHYSICAL_ENTRY_POINT,
+        program_size,
+        0x00,
+        0x00,
+        0x01, // (no alignment constraint)
+        0x00,
+    ));
+
+    section_header.append(&mut create_section_header_entry(
+        strtab_strtab_index,
+        SHT_STRTAB,
+        0x00,
+        0x00,
+        STRTABLE_PHYSICAL_ENTRY_POINT,
+        strtable_size,
+        0x00,
+        0x00,
+        0x01, // (no alignment constraint)
+        0x00,
+    ));
+
+    section_header
+}
+
 fn create_program_header(program_size: u32) -> Vec<u8> {
     let mut program_header: Vec<u8> = vec![];
     // all members are 4 bytes
@@ -162,7 +273,6 @@ fn create_program_header(program_size: u32) -> Vec<u8> {
     program_header.append(&mut serialize_le(PT_LOAD));
 
     // p_offset
-    const PHYSICAL_ENTRY_POINT: u32 = 0x1000; // align on page size
     program_header.append(&mut serialize_le(PHYSICAL_ENTRY_POINT));
 
     // p_vaddr
@@ -227,8 +337,8 @@ fn create_elf_header() -> Vec<u8> {
     // Start of program header table (immediately after this header)
     header.append(&mut serialize_le(0x34));
 
-    // Start of section header table
-    header.append(&mut serialize_le(0x00));
+    // e_shoff: Start of section header table
+    header.append(&mut serialize_le(0x54));
 
     // eflags
     header.append(&mut vec![0x00; 4]);
@@ -242,14 +352,14 @@ fn create_elf_header() -> Vec<u8> {
     // e_phnum: number of entries in program header table
     header.append(&mut vec![0x01, 0x00]);
 
-    // TODO: Size of a section header table entry
-    header.append(&mut vec![0x00, 0x00]);
+    // e_shentsize: size of a section header table entry
+    header.append(&mut vec![40, 0x00]);
 
-    // TODO: Number of entries in section header table
-    header.append(&mut vec![0x00, 0x00]);
+    // e_shnum: number of entries in section header table
+    header.append(&mut vec![0x02, 0x00]);
 
-    // TODO: index of section header table entry that contains section names
-    header.append(&mut vec![0x00, 0x00]);
+    // e_shstrndx: index of section header table entry that contains section names
+    header.append(&mut vec![0x01, 0x00]);
 
     header
 }
@@ -264,6 +374,11 @@ mod test_elf {
     }
 
     #[test]
+    fn test_section_header_length() {
+        assert_eq!(create_section_header(0).len(), 10 * 4);
+    }
+
+    #[test]
     fn test_program_header_length() {
         assert_eq!(create_program_header(0).len(), 8 * 4);
     }
@@ -275,17 +390,34 @@ pub fn run(config: Config) -> std::io::Result<()> {
     let elf_header = create_elf_header();
     let program = process(&config.filename).unwrap();
     let program_header = create_program_header(program.len() as u32);
-
+    let string_table = create_string_table(vec![".text", ".shstrtab"]);
+    let section_header = create_section_header(program.len() as u32, string_table.len() as u32);
     let mut file = fs::File::create("a.out")?;
     file.set_permissions(PermissionsExt::from_mode(0o755))?;
 
     file.write_all(&elf_header)?;
     file.write_all(&program_header)?;
+    file.write_all(&section_header)?;
+
+    // string table goes at 0x400
+    let padding = vec![
+        0;
+        STRTABLE_PHYSICAL_ENTRY_POINT as usize
+            - elf_header.len()
+            - program_header.len()
+            - section_header.len()
+    ];
+    file.write_all(&padding)?;
+    file.write_all(&string_table)?;
 
     // pad 4KB page
-    let padding = vec![0; 0x1000 - elf_header.len() - program_header.len()];
+    let padding = vec![
+        0;
+        PHYSICAL_ENTRY_POINT as usize
+            - STRTABLE_PHYSICAL_ENTRY_POINT as usize
+            - string_table.len()
+    ];
     file.write_all(&padding)?;
-
     file.write_all(&program)?;
 
     Ok(())
