@@ -45,6 +45,10 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
     // program it points to.
     let mut labels = HashMap::new();
 
+    // This maps constant names to the tokens they should be replaced
+    // with.
+    let mut constants = HashMap::new();
+
     // This maps the index of a displacement in the intermediate
     // program to an offset so that:
     // displacement index - offset = index where instruction ends
@@ -53,47 +57,64 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
     let mut intermediate_index_instruction_offset = HashMap::new();
 
     for line in content.split('\n') {
-        let tokens = tokenize(line)?;
-        // line was a comment
+        let mut tokens = tokenize(line)?;
+        // Line was a comment.
         if tokens.is_empty() {
             continue;
         }
 
-        if tokens.len() == 1 && tokens[0].clone().t.unwrap() == TokenType::Label {
-            // labels should point to the next instruction
-            labels.insert(tokens[0].value.clone(), intermediate_program.len());
-        } else {
-            let mut intermediate_instruction = compile(tokens)?;
-            let mut padded_intermediate_instruction = vec![];
-            let mut displacements = vec![];
-            for intermediate in intermediate_instruction {
-                padded_intermediate_instruction.push(intermediate.clone());
-                match intermediate {
-                    IntermediateCode::Displacement32(_) => {
-                        displacements.push(padded_intermediate_instruction.len() - 1);
-                        padded_intermediate_instruction
-                            .append(&mut vec![IntermediateCode::Padding; 3]);
+        // These tokens will not be translated to bytes in the
+        // executable.
+        match tokens[0].t {
+            Some(TokenType::Constant) => {
+                constants.insert(tokens[0].value.clone(), tokens[1].clone());
+                continue;
+            }
+            Some(TokenType::Label) => {
+                // labels should point to the next instruction
+                labels.insert(tokens[0].value.clone(), intermediate_program.len());
+                continue;
+            }
+            _ => {}
+        };
+
+        // Replace ConstantReferences.
+        tokens = tokens
+            .into_iter()
+            .map(|token| match token.t {
+                Some(TokenType::ConstantReference) => {
+                    match constants.get(&token.value) {
+                        Some(token) => token.clone(),
+                        _ => panic!("ConstantReference {} not found", token.value),
                     }
-                    _ => {}
                 }
-            }
+                _ => token,
+            })
+            .collect();
 
-            for displacement in displacements {
-                // println!(
-                //     "from displacement {} to end is {} - {} = {}",
-                //     displacement,
-                //     padded_intermediate_instruction.len(),
-                //     displacement,
-                //     padded_intermediate_instruction.len() - displacement
-                // );
-                intermediate_index_instruction_offset.insert(
-                    intermediate_program.len() + displacement,
-                    padded_intermediate_instruction.len() - displacement,
-                );
+        let mut intermediate_instruction = compile(tokens)?;
+        let mut padded_intermediate_instruction = vec![];
+        let mut displacements = vec![];
+        for intermediate in intermediate_instruction {
+            padded_intermediate_instruction.push(intermediate.clone());
+            match intermediate {
+                IntermediateCode::Displacement32(_) => {
+                    displacements.push(padded_intermediate_instruction.len() - 1);
+                    padded_intermediate_instruction
+                        .append(&mut vec![IntermediateCode::Padding; 3]);
+                }
+                _ => {}
             }
-
-            intermediate_program.append(&mut padded_intermediate_instruction);
         }
+
+        for displacement in displacements {
+            intermediate_index_instruction_offset.insert(
+                intermediate_program.len() + displacement,
+                padded_intermediate_instruction.len() - displacement,
+            );
+        }
+
+        intermediate_program.append(&mut padded_intermediate_instruction);
     }
 
     // This contains the compiled program. It is the intermediate
@@ -107,10 +128,6 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
                     let instruction_end =
                         i as i32 + *intermediate_index_instruction_offset.get(&i).unwrap() as i32;
                     let displacement = *target_i as i32 - instruction_end;
-                    // println!(
-                    //     "instruction end is {}\ntarget is {} at {}\ndisplacement is {}\n",
-                    //     instruction_end, s, target_i, displacement
-                    // );
                     serialize_signed_le(displacement)
                 }
                 None => panic!("Unknown label {}", s),

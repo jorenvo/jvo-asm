@@ -65,6 +65,10 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "🦘" => {
             token.t = Some(TokenType::Jump);
         }
+        _ if word.starts_with("🖊") => {
+            token.t = Some(TokenType::Constant);
+            token.value.remove(0);
+        }
         _ if word.starts_with("📪") && word.ends_with(":") => {
             token.t = Some(TokenType::Label);
 
@@ -83,9 +87,7 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
             token.t = Some(TokenType::Memory);
         }
         _ => {
-            return Err(Box::new(TokenizeError {
-                msg: format!("Unexpected token: {}", word),
-            }));
+            token.t = Some(TokenType::ConstantReference);
         }
     };
 

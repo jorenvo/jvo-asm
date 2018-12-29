@@ -27,9 +27,11 @@ pub enum TokenType {
     Interrupt,
     Label,
     LabelReference,
+    Constant,
+    ConstantReference, // <- this should be translated before compilation
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Token {
     pub t: Option<TokenType>,
     pub value: String,

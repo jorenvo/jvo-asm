@@ -1,6 +1,7 @@
+🖊my_constant $16
 📪start:
 ⚪ ⬅ $1
-🔴 ⬅ $16
+🔴 ⬅ my_constant
 🦘 ✉interrupt
 🔴 ⬆ $4
 🦘 ✉start
