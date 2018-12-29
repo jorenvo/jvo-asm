@@ -126,13 +126,10 @@ mod test_tokenize {
     }
 
     #[test]
-    fn test_syntax_error1() {
-        assert!(tokenize("foobar").is_err());
-    }
-
-    #[test]
-    fn test_syntax_error2() {
-        assert!(tokenize("$5 ⬆ x").is_err());
+    fn test_const_reference() {
+        let tokens = tokenize("foobar").unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].t, Some(TokenType::ConstantReference));
     }
 
     fn verify_ret(tokens: &Vec<Token>) {
