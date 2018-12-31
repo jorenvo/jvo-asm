@@ -80,6 +80,12 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
             token.value.remove(0);
         }
         _ if word.starts_with("$") => {
+            if word[1..].parse::<u32>().is_err() {
+                return Err(Box::new(TokenizeError {
+                    msg: format!("Invalid value: {}. Should be a number.", word),
+                }));
+            }
+
             token.t = Some(TokenType::Value);
             token.value.remove(0);
         }
@@ -208,6 +214,12 @@ mod test_tokenize {
     fn test_comment() {
         let tokens = tokenize("↩ # some comment").unwrap();
         verify_ret(&tokens);
+    }
+
+    #[test]
+    fn test_invalid_value() {
+        let tokens = tokenize("⚪ ⬅ $SYS_EXIT");
+        assert!(tokens.is_err());
     }
 
     #[test]
