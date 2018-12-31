@@ -187,14 +187,15 @@ impl<'a> Instruction for InstructionAdd<'a> {
         let mod_ = 0b11000000;
         let reg = 0;
         let rm = get_reg_value(&self.register).unwrap();
+        let value = serialize_le(self.operand.value.parse::<u32>()?);
 
         Ok(vec![
             IntermediateCode::Byte(0x81), // 32 bit adds
             IntermediateCode::Byte(mod_ | reg | rm),
-            IntermediateCode::Byte(self.operand.value.parse::<u8>()?), // todo support >1 byte
-            IntermediateCode::Byte(0x00),
-            IntermediateCode::Byte(0x00),
-            IntermediateCode::Byte(0x00),
+            IntermediateCode::Byte(value[0]),
+            IntermediateCode::Byte(value[1]),
+            IntermediateCode::Byte(value[2]),
+            IntermediateCode::Byte(value[3]),
         ])
     }
 }
@@ -439,6 +440,40 @@ mod test_instructions {
                 IntermediateCode::Byte(0x00),
                 IntermediateCode::Byte(0x00),
                 IntermediateCode::Byte(0x00),
+            ],
+            &bytes
+        ));
+    }
+
+    #[test]
+    fn test_add_immediate2() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⚫".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Add),
+            value: "⬆".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "4294967295".to_string(),
+        };
+        let instruction = InstructionAdd {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0x81),
+                IntermediateCode::Byte(0b11000000 | get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0xff),
+                IntermediateCode::Byte(0xff),
+                IntermediateCode::Byte(0xff),
+                IntermediateCode::Byte(0xff),
             ],
             &bytes
         ));
