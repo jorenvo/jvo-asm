@@ -48,6 +48,7 @@ fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
         "🔵" => Ok(1), // ecx
         "⚫" => Ok(2),  // edx
         "🔴" => Ok(3), // ebx
+        "◀" => Ok(4),  // esp
         _ => Err(Box::new(CompileError {
             msg: format!("{} is not a valid register", token.value),
         })),
@@ -66,7 +67,7 @@ trait Instruction {
 
     fn validate_tokens(
         &self,
-        expected: Vec<TokenType>,
+        expected: Vec<Vec<TokenType>>,
         given: Vec<&Token>,
     ) -> Result<(), Box<error::Error>> {
         // this shouldn't happen because the compiler already created
@@ -81,15 +82,15 @@ trait Instruction {
             }));
         }
 
-        for (expected_token, given_token) in expected.iter().zip(given.iter()) {
+        for (expected_tokens, given_token) in expected.iter().zip(given.iter()) {
             if let Some(ref given_token_t) = given_token.t {
-                if expected_token != given_token_t {
+                if !expected_tokens.contains(given_token_t) {
                     return Err(Box::new(CompileError {
                         msg: format!(
                             "Grammatical error: {}, {} should be a {:?}.",
                             self.format_tokens(&given),
                             given_token,
-                            expected_token,
+                            expected_tokens,
                         ),
                     }));
                 }
@@ -98,7 +99,7 @@ trait Instruction {
                     msg: format!(
                         "Grammatical error: {}, expected a {:?}",
                         self.format_tokens(&given),
-                        expected_token,
+                        expected_tokens,
                     ),
                 }));
             }
@@ -117,7 +118,11 @@ struct InstructionMove<'a> {
 impl<'a> Instruction for InstructionMove<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
-            vec![TokenType::Register, TokenType::Move, TokenType::Value],
+            vec![
+                vec![TokenType::Register],
+                vec![TokenType::Move],
+                vec![TokenType::Value, TokenType::Register],
+            ],
             vec![&self.register, &self.operation, &self.operand],
         )
     }
@@ -125,19 +130,33 @@ impl<'a> Instruction for InstructionMove<'a> {
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
         // p 1161
-        // TODO only supports moving immediate values for now
-        let mut opcode = 0xb8;
+        match self.operand.t {
+            Some(TokenType::Value) => {
+                let mut opcode = 0xb8;
+                // register is specified in 3 LSb's
+                opcode |= get_reg_value(self.register)?;
 
-        // register is specified in 3 LSb's
-        opcode |= get_reg_value(self.register)?;
+                Ok(vec![
+                    IntermediateCode::Byte(opcode),
+                    IntermediateCode::Byte(self.operand.value.parse::<u8>().unwrap()),
+                    IntermediateCode::Byte(0x00),
+                    IntermediateCode::Byte(0x00),
+                    IntermediateCode::Byte(0x00),
+                ])
+            }
+            // TokenType::Register
+            _ => {
+                let opcode = 0x89;
+                let mod_ = 0b11000000;
+                let reg = get_reg_value(&self.operand).unwrap();
+                let rm = get_reg_value(&self.register).unwrap();
 
-        Ok(vec![
-            IntermediateCode::Byte(opcode),
-            IntermediateCode::Byte(self.operand.value.parse::<u8>().unwrap()),
-            IntermediateCode::Byte(0x00),
-            IntermediateCode::Byte(0x00),
-            IntermediateCode::Byte(0x00),
-        ])
+                Ok(vec![
+                    IntermediateCode::Byte(opcode),
+                    IntermediateCode::Byte(mod_ | reg << 3 | rm),
+                ])
+            }
+        }
     }
 }
 
@@ -150,7 +169,11 @@ struct InstructionAdd<'a> {
 impl<'a> Instruction for InstructionAdd<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
-            vec![TokenType::Register, TokenType::Add, TokenType::Value],
+            vec![
+                vec![TokenType::Register],
+                vec![TokenType::Add],
+                vec![TokenType::Value],
+            ],
             vec![&self.register, &self.operation, &self.operand],
         )
     }
@@ -183,7 +206,7 @@ struct InstructionJump<'a> {
 impl<'a> Instruction for InstructionJump<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
-            vec![TokenType::Jump, TokenType::LabelReference],
+            vec![vec![TokenType::Jump], vec![TokenType::LabelReference]],
             vec![&self.operation, &self.operand],
         )
     }
@@ -207,7 +230,7 @@ struct InstructionInterrupt<'a> {
 impl<'a> Instruction for InstructionInterrupt<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
-            vec![TokenType::Interrupt, TokenType::Value],
+            vec![vec![TokenType::Interrupt], vec![TokenType::Value]],
             vec![&self.operation, &self.operand],
         )
     }
@@ -300,6 +323,33 @@ mod test_instructions {
     }
 
     #[test]
+    fn test_move_register1() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "🔵".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Move),
+            value: "⬅".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Register),
+            value: "◀".to_string(),
+        };
+        let instruction = InstructionMove {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[IntermediateCode::Byte(0x89), IntermediateCode::Byte(0xe1),],
+            &bytes
+        ));
+    }
+
+    #[test]
     fn test_add_immediate1() {
         let register = Token {
             t: Some(TokenType::Register),
@@ -375,10 +425,7 @@ mod test_instructions {
 
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
-            &[
-                IntermediateCode::Byte(0xcd),
-                IntermediateCode::Byte(128),
-            ],
+            &[IntermediateCode::Byte(0xcd), IntermediateCode::Byte(128),],
             &bytes
         ));
     }

@@ -62,6 +62,9 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "⚫" => {
             token.t = Some(TokenType::Register);
         }
+        "◀" => {
+            token.t = Some(TokenType::Register);
+        }
         "🦘" => {
             token.t = Some(TokenType::Jump);
         }
@@ -167,7 +170,7 @@ mod test_tokenize {
     }
 
     #[test]
-    fn test_memory () {
+    fn test_memory() {
         let tokens = tokenize("321").unwrap();
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].t, Some(TokenType::Memory));
@@ -175,7 +178,7 @@ mod test_tokenize {
     }
 
     #[test]
-    fn test_label () {
+    fn test_label() {
         let tokens = tokenize("📪my_label:").unwrap();
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].t, Some(TokenType::Label));
@@ -183,7 +186,7 @@ mod test_tokenize {
     }
 
     #[test]
-    fn test_jump () {
+    fn test_jump() {
         let tokens = tokenize("🦘 123").unwrap();
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].t, Some(TokenType::Jump));
