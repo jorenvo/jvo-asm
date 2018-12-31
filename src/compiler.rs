@@ -135,13 +135,14 @@ impl<'a> Instruction for InstructionMove<'a> {
                 let mut opcode = 0xb8;
                 // register is specified in 3 LSb's
                 opcode |= get_reg_value(self.register)?;
+                let value = serialize_le(self.operand.value.parse::<u32>()?);
 
                 Ok(vec![
                     IntermediateCode::Byte(opcode),
-                    IntermediateCode::Byte(self.operand.value.parse::<u8>().unwrap()),
-                    IntermediateCode::Byte(0x00),
-                    IntermediateCode::Byte(0x00),
-                    IntermediateCode::Byte(0x00),
+                    IntermediateCode::Byte(value[0]),
+                    IntermediateCode::Byte(value[1]),
+                    IntermediateCode::Byte(value[2]),
+                    IntermediateCode::Byte(value[3]),
                 ])
             }
             // TokenType::Register
@@ -344,6 +345,39 @@ mod test_instructions {
                 IntermediateCode::Byte(0x00),
                 IntermediateCode::Byte(0x00),
                 IntermediateCode::Byte(0x00),
+            ],
+            &bytes
+        ));
+    }
+
+    #[test]
+    fn test_move_immediate3() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⚪".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Move),
+            value: "⬅".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "4294967295".to_string(),
+        };
+        let instruction = InstructionMove {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0xb8 | get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0xff),
+                IntermediateCode::Byte(0xff),
+                IntermediateCode::Byte(0xff),
+                IntermediateCode::Byte(0xff),
             ],
             &bytes
         ));
