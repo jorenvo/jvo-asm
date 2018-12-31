@@ -36,11 +36,6 @@ impl error::Error for CompileError {
     }
 }
 
-// struct Value {}
-// struct Memory {}
-// struct BasePointerMemory {}
-// struct Register {}
-
 fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
     // p 574
     match token.value.as_str() {
@@ -272,6 +267,28 @@ impl<'a> Instruction for InstructionPush<'a> {
             IntermediateCode::Byte(value[2]),
             IntermediateCode::Byte(value[3]),
         ])
+    }
+}
+
+struct InstructionPop<'a> {
+    operation: &'a Token,
+    operand: &'a Token,
+}
+
+impl<'a> Instruction for InstructionPop<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        self.validate_tokens(
+            vec![vec![TokenType::Pop], vec![TokenType::Register]],
+            vec![&self.operation, &self.operand],
+        )
+    }
+
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+        self.validate()?;
+
+        // p 1633
+        let opcode = 0x58 | get_reg_value(&self.operand).unwrap();
+        Ok(vec![IntermediateCode::Byte(opcode)])
     }
 }
 
@@ -531,6 +548,25 @@ mod test_instructions {
             ],
             &bytes
         ));
+    }
+
+    #[test]
+    fn test_pop1() {
+        let operation = Token {
+            t: Some(TokenType::Pop),
+            value: "📤".to_string(),
+        };
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⬇".to_string(),
+        };
+        let instruction = InstructionPop {
+            operation: &operation,
+            operand: &register,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(&[IntermediateCode::Byte(0x5d),], &bytes));
     }
 
     #[test]
