@@ -333,14 +333,14 @@ mod test_instructions {
         ));
     }
 
-    // #[test]
+    #[test]
     fn test_jump() {
         let operation = Token {
             t: Some(TokenType::Jump),
             value: "🦘".to_string(),
         };
         let operand = Token {
-            t: Some(TokenType::Memory),
+            t: Some(TokenType::LabelReference),
             value: "test_label".to_string(),
         };
         let instruction = InstructionJump {
