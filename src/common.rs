@@ -19,6 +19,7 @@ pub enum TokenType {
     Move,
     Add,
     Jump,
+    Push,
     Value,
     Memory,
     BasePointerMemory,

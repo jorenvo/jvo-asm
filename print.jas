@@ -1,0 +1,21 @@
+# constants
+🖊STDOUT $1
+🖊SYS_WRITE $4
+🖊SYS_EXIT $1
+🖊LINUX_SYSCALL $128
+
+# program
+📥 $174285409
+
+⚪ ⬅ SYS_WRITE
+🔴 ⬅ STDOUT
+
+🔵 ⬅ ◀
+⚫ ⬅ $4
+
+❗ LINUX_SYSCALL
+
+# exit
+⚪ ⬅ SYS_EXIT
+🔴 ⬅ $0
+❗ LINUX_SYSCALL

@@ -68,6 +68,9 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "🦘" => {
             token.t = Some(TokenType::Jump);
         }
+        "📥" => {
+            token.t = Some(TokenType::Push);
+        }
         _ if word.starts_with("🖊") => {
             token.t = Some(TokenType::Constant);
             token.value.remove(0);

@@ -245,6 +245,33 @@ impl<'a> Instruction for InstructionInterrupt<'a> {
     }
 }
 
+struct InstructionPush<'a> {
+    operation: &'a Token,
+    operand: &'a Token,
+}
+
+impl<'a> Instruction for InstructionPush<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        self.validate_tokens(
+            vec![vec![TokenType::Push], vec![TokenType::Value]],
+            vec![&self.operation, &self.operand],
+        )
+    }
+
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+        self.validate()?;
+        let value = serialize_le(self.operand.value.parse::<u32>()?);
+        // p 1633
+        Ok(vec![
+            IntermediateCode::Byte(0x68),
+            IntermediateCode::Byte(value[0]),
+            IntermediateCode::Byte(value[1]),
+            IntermediateCode::Byte(value[2]),
+            IntermediateCode::Byte(value[3]),
+        ])
+    }
+}
+
 #[cfg(test)]
 mod test_instructions {
     use super::*;
@@ -409,6 +436,34 @@ mod test_instructions {
     }
 
     #[test]
+    fn test_push1() {
+        let operation = Token {
+            t: Some(TokenType::Push),
+            value: "📥".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "174285409".to_string(),
+        };
+        let instruction = InstructionPush {
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0x68),
+                IntermediateCode::Byte(0x61),
+                IntermediateCode::Byte(0x62),
+                IntermediateCode::Byte(0x63),
+                IntermediateCode::Byte(0x0a),
+            ],
+            &bytes
+        ));
+    }
+
+    #[test]
     fn test_interrupt_linux() {
         let operation = Token {
             t: Some(TokenType::Interrupt),
@@ -488,6 +543,25 @@ mod test_instructions {
     }
 
     #[test]
+    fn test_push_validate() {
+        let operation = Token {
+            t: Some(TokenType::Push),
+            value: "📥".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "123".to_string(),
+        };
+        let instruction = InstructionPush {
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let result = instruction.validate();
+        assert!(result.is_ok());
+    }
+
+    #[test]
     fn test_move_validate_ok() {
         let register = Token {
             t: Some(TokenType::Register),
@@ -562,6 +636,12 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
             break;
         } else if token.t == Some(TokenType::Jump) {
             operation = Some(Box::new(InstructionJump {
+                operation: &tokens[0],
+                operand: &tokens[1],
+            }));
+            break;
+        } else if token.t == Some(TokenType::Push) {
+            operation = Some(Box::new(InstructionPush {
                 operation: &tokens[0],
                 operand: &tokens[1],
             }));
