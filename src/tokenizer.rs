@@ -50,19 +50,7 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "❗" => {
             token.t = Some(TokenType::Interrupt);
         }
-        "⚪" => {
-            token.t = Some(TokenType::Register);
-        }
-        "🔴" => {
-            token.t = Some(TokenType::Register);
-        }
-        "🔵" => {
-            token.t = Some(TokenType::Register);
-        }
-        "⚫" => {
-            token.t = Some(TokenType::Register);
-        }
-        "◀" => {
+        "⚪" | "🔴" | "🔵" | "⚫" | "◀" | "⬇" => {
             token.t = Some(TokenType::Register);
         }
         "🦘" => {

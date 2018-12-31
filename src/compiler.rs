@@ -49,6 +49,7 @@ fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
         "⚫" => Ok(2),  // edx
         "🔴" => Ok(3), // ebx
         "◀" => Ok(4),  // esp
+        "⬇" => Ok(5),  // ebp
         _ => Err(Box::new(CompileError {
             msg: format!("{} is not a valid register", token.value),
         })),
