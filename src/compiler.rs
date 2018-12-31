@@ -363,7 +363,7 @@ mod test_instructions {
         };
         let operand = Token {
             t: Some(TokenType::Value),
-            value: "4294967295".to_string(),
+            value: "4294967294".to_string(),
         };
         let instruction = InstructionMove {
             register: &register,
@@ -375,7 +375,7 @@ mod test_instructions {
         assert!(vec_compare(
             &[
                 IntermediateCode::Byte(0xb8 | get_reg_value(&register).unwrap()),
-                IntermediateCode::Byte(0xff),
+                IntermediateCode::Byte(0xfe),
                 IntermediateCode::Byte(0xff),
                 IntermediateCode::Byte(0xff),
                 IntermediateCode::Byte(0xff),
@@ -457,7 +457,7 @@ mod test_instructions {
         };
         let operand = Token {
             t: Some(TokenType::Value),
-            value: "4294967295".to_string(),
+            value: "4294967294".to_string(),
         };
         let instruction = InstructionAdd {
             register: &register,
@@ -470,7 +470,7 @@ mod test_instructions {
             &[
                 IntermediateCode::Byte(0x81),
                 IntermediateCode::Byte(0b11000000 | get_reg_value(&register).unwrap()),
-                IntermediateCode::Byte(0xff),
+                IntermediateCode::Byte(0xfe),
                 IntermediateCode::Byte(0xff),
                 IntermediateCode::Byte(0xff),
                 IntermediateCode::Byte(0xff),
