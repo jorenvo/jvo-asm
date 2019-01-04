@@ -37,21 +37,6 @@ impl error::Error for CompileError {
     }
 }
 
-fn get_reg_value(token: &Token) -> Result<u8, Box<error::Error>> {
-    // p 574
-    match token.value.as_str() {
-        "⚪" => Ok(0),  // eax
-        "🔵" => Ok(1), // ecx
-        "⚫" => Ok(2),  // edx
-        "🔴" => Ok(3), // ebx
-        "◀" => Ok(4),  // esp
-        "⬇" => Ok(5),  // ebp
-        _ => Err(Box::new(CompileError {
-            msg: format!("{} is not a valid register", token.value),
-        })),
-    }
-}
-
 trait Instruction {
     fn validate(&self) -> Result<(), Box<error::Error>>;
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>>;
@@ -60,6 +45,21 @@ trait Instruction {
         tokens.iter().fold("".to_string(), |acc, t| {
             acc.to_owned() + &format!(" {}", t.value)
         })
+    }
+
+    fn get_reg_value(&self, token: &Token) -> Result<u8, Box<error::Error>> {
+        // p 574
+        match token.value.as_str() {
+            "⚪" => Ok(0),  // eax
+            "🔵" => Ok(1), // ecx
+            "⚫" => Ok(2),  // edx
+            "🔴" => Ok(3), // ebx
+            "◀" => Ok(4),  // esp
+            "⬇" => Ok(5),  // ebp
+            _ => Err(Box::new(CompileError {
+                msg: format!("{} is not a valid register", token.value),
+            })),
+        }
     }
 
     fn validate_tokens(
@@ -135,7 +135,7 @@ impl<'a> Instruction for InstructionMove<'a> {
             Some(TokenType::Value) => {
                 let mut opcode = 0xb8;
                 // register is specified in 3 LSb's
-                opcode |= get_reg_value(self.register)?;
+                opcode |= self.get_reg_value(self.register)?;
                 let value = serialize_le(self.operand.value.parse::<u32>()?);
 
                 Ok(vec![
@@ -150,8 +150,8 @@ impl<'a> Instruction for InstructionMove<'a> {
             _ => {
                 let opcode = 0x89;
                 let mod_ = 0b11000000;
-                let reg = get_reg_value(&self.operand).unwrap();
-                let rm = get_reg_value(&self.register).unwrap();
+                let reg = self.get_reg_value(&self.operand).unwrap();
+                let rm = self.get_reg_value(&self.register).unwrap();
 
                 Ok(vec![
                     IntermediateCode::Byte(opcode),
@@ -189,7 +189,7 @@ impl<'a> Instruction for InstructionAdd<'a> {
         // todo currently only supports adding immediate values
         let mod_ = 0b11000000;
         let reg = 0;
-        let rm = get_reg_value(&self.register).unwrap();
+        let rm = self.get_reg_value(&self.register).unwrap();
         let value = serialize_le(self.operand.value.parse::<u32>()?);
 
         Ok(vec![
@@ -312,7 +312,7 @@ impl<'a> Instruction for InstructionPop<'a> {
         self.validate()?;
 
         // p 1633
-        let opcode = 0x58 | get_reg_value(&self.operand).unwrap();
+        let opcode = 0x58 | self.get_reg_value(&self.operand).unwrap();
         Ok(vec![IntermediateCode::Byte(opcode)])
     }
 }
@@ -353,8 +353,8 @@ impl<'a> Instruction for InstructionCompare<'a> {
         // In a conventional assembly language with AT&T syntax this
         // would make jge jump, because there the second argument is
         // compared to the first.
-        let reg = get_reg_value(&self.left_operand).unwrap();;
-        let rm = get_reg_value(&self.right_operand).unwrap();
+        let reg = self.get_reg_value(&self.left_operand).unwrap();;
+        let rm = self.get_reg_value(&self.right_operand).unwrap();
 
         // p 725
         Ok(vec![
@@ -398,7 +398,7 @@ mod test_instructions {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[
-                IntermediateCode::Byte(0xb8 | get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0xb8 | instruction.get_reg_value(&register).unwrap()),
                 IntermediateCode::Byte(0x01),
                 IntermediateCode::Byte(0x00),
                 IntermediateCode::Byte(0x00),
@@ -431,7 +431,7 @@ mod test_instructions {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[
-                IntermediateCode::Byte(0xb8 | get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0xb8 | instruction.get_reg_value(&register).unwrap()),
                 IntermediateCode::Byte(0x00),
                 IntermediateCode::Byte(0x00),
                 IntermediateCode::Byte(0x00),
@@ -464,7 +464,7 @@ mod test_instructions {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[
-                IntermediateCode::Byte(0xb8 | get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0xb8 | instruction.get_reg_value(&register).unwrap()),
                 IntermediateCode::Byte(0xfe),
                 IntermediateCode::Byte(0xff),
                 IntermediateCode::Byte(0xff),
@@ -525,7 +525,7 @@ mod test_instructions {
         assert!(vec_compare(
             &[
                 IntermediateCode::Byte(0x81),
-                IntermediateCode::Byte(0b11000000 | get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0b11000000 | instruction.get_reg_value(&register).unwrap()),
                 IntermediateCode::Byte(0x07),
                 IntermediateCode::Byte(0x00),
                 IntermediateCode::Byte(0x00),
@@ -559,7 +559,7 @@ mod test_instructions {
         assert!(vec_compare(
             &[
                 IntermediateCode::Byte(0x81),
-                IntermediateCode::Byte(0b11000000 | get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0b11000000 | instruction.get_reg_value(&register).unwrap()),
                 IntermediateCode::Byte(0xfe),
                 IntermediateCode::Byte(0xff),
                 IntermediateCode::Byte(0xff),
