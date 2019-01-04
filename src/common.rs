@@ -26,6 +26,7 @@ pub enum TokenType {
     BasePointerMemory,
     Register,
     Return,
+    Compare,
     Interrupt,
     Label,
     LabelReference,

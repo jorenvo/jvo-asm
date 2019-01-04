@@ -292,6 +292,49 @@ impl<'a> Instruction for InstructionPop<'a> {
     }
 }
 
+struct InstructionCompare<'a> {
+    operation: &'a Token,
+    left_operand: &'a Token,
+    right_operand: &'a Token,
+}
+
+impl<'a> Instruction for InstructionCompare<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        self.validate_tokens(
+            vec![
+                vec![TokenType::Compare],
+                vec![TokenType::Register],
+                vec![TokenType::Register],
+            ],
+            vec![&self.operation, &self.left_operand, &self.right_operand],
+        )
+    }
+
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+        self.validate()?;
+
+        let opcode = 0x39;
+        let mod_ = 0b11000000;
+
+        // Contrary to convention the order of these operands is more
+        // in line with what you would expect. With x < y:
+        // cmp x, y
+        // will make jle jump.
+        //
+        // In a conventional assembly language with AT&T syntax this
+        // would make jge jump, because there the second argument is
+        // compared to the first.
+        let reg = get_reg_value(&self.left_operand).unwrap();;
+        let rm = get_reg_value(&self.right_operand).unwrap();
+
+        // p 725
+        Ok(vec![
+            IntermediateCode::Byte(opcode),
+            IntermediateCode::Byte(mod_ | reg << 3 | rm),
+        ])
+    }
+}
+
 #[cfg(test)]
 mod test_instructions {
     use super::*;
@@ -570,6 +613,34 @@ mod test_instructions {
     }
 
     #[test]
+    fn test_compare1() {
+        let operation = Token {
+            t: Some(TokenType::Compare),
+            value: "⚖".to_string(),
+        };
+        let left_operand = Token {
+            t: Some(TokenType::Register),
+            value: "🔴".to_string(),
+        };
+        let right_operand = Token {
+            t: Some(TokenType::Register),
+            value: "⚪".to_string(),
+        };
+        let instruction = InstructionCompare {
+            operation: &operation,
+            left_operand: &left_operand,
+            right_operand: &right_operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        println!("{:?}", bytes);
+        assert!(vec_compare(
+            &[IntermediateCode::Byte(0x39), IntermediateCode::Byte(0xd8)],
+            &bytes
+        ));
+    }
+
+    #[test]
     fn test_interrupt_linux() {
         let operation = Token {
             t: Some(TokenType::Interrupt),
@@ -750,6 +821,13 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
             operation = Some(Box::new(InstructionPush {
                 operation: &tokens[0],
                 operand: &tokens[1],
+            }));
+            break;
+        } else if token.t == Some(TokenType::Compare) {
+            operation = Some(Box::new(InstructionCompare {
+                operation: &tokens[0],
+                left_operand: &tokens[1],
+                right_operand: &tokens[2],
             }));
             break;
         }

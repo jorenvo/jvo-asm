@@ -59,6 +59,9 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "📥" => {
             token.t = Some(TokenType::Push);
         }
+        "⚖" => {
+            token.t = Some(TokenType::Compare);
+        }
         _ if word.starts_with("🖊") => {
             token.t = Some(TokenType::Constant);
             token.value.remove(0);
@@ -183,6 +186,15 @@ mod test_tokenize {
         assert_eq!(tokens[0].t, Some(TokenType::Jump));
         assert_eq!(tokens[1].t, Some(TokenType::Memory));
         assert_eq!(tokens[1].value, "123");
+    }
+
+    #[test]
+    fn test_compare_registers() {
+        let tokens = tokenize("⚖ ⚪ ⚫").unwrap();
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].t, Some(TokenType::Compare));
+        assert_eq!(tokens[1].t, Some(TokenType::Register));
+        assert_eq!(tokens[2].t, Some(TokenType::Register));
     }
 
     #[test]
