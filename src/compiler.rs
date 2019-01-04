@@ -17,6 +17,7 @@
 
 #![allow(unused_variables, dead_code)]
 use common::*;
+use std::collections::HashSet;
 use std::{error, fmt};
 
 #[derive(Debug, Clone)]
@@ -63,10 +64,10 @@ trait Instruction {
 
     fn validate_tokens(
         &self,
-        expected: Vec<Vec<TokenType>>,
+        expected: Vec<HashSet<TokenType>>,
         given: Vec<&Token>,
     ) -> Result<(), Box<error::Error>> {
-        // this shouldn't happen because the compiler already created
+        // This shouldn't happen because the compiler already created
         // the instruction before and probably dropped any excess
         // tokens.
         if expected.len() != given.len() {
@@ -115,9 +116,13 @@ impl<'a> Instruction for InstructionMove<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
             vec![
-                vec![TokenType::Register],
-                vec![TokenType::Move],
-                vec![TokenType::Value, TokenType::Register],
+                vec![TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+                vec![TokenType::Move].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Value, TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
             ],
             vec![&self.register, &self.operation, &self.operand],
         )
@@ -167,9 +172,11 @@ impl<'a> Instruction for InstructionAdd<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
             vec![
-                vec![TokenType::Register],
-                vec![TokenType::Add],
-                vec![TokenType::Value],
+                vec![TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+                vec![TokenType::Add].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Value].into_iter().collect::<HashSet<_>>(),
             ],
             vec![&self.register, &self.operation, &self.operand],
         )
@@ -204,7 +211,12 @@ struct InstructionJump<'a> {
 impl<'a> Instruction for InstructionJump<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
-            vec![vec![TokenType::Jump], vec![TokenType::LabelReference]],
+            vec![
+                vec![TokenType::Jump].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::LabelReference]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+            ],
             vec![&self.operation, &self.operand],
         )
     }
@@ -228,7 +240,12 @@ struct InstructionInterrupt<'a> {
 impl<'a> Instruction for InstructionInterrupt<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
-            vec![vec![TokenType::Interrupt], vec![TokenType::Value]],
+            vec![
+                vec![TokenType::Interrupt]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+                vec![TokenType::Value].into_iter().collect::<HashSet<_>>(),
+            ],
             vec![&self.operation, &self.operand],
         )
     }
@@ -251,7 +268,10 @@ struct InstructionPush<'a> {
 impl<'a> Instruction for InstructionPush<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
-            vec![vec![TokenType::Push], vec![TokenType::Value]],
+            vec![
+                vec![TokenType::Push].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Value].into_iter().collect::<HashSet<_>>(),
+            ],
             vec![&self.operation, &self.operand],
         )
     }
@@ -278,7 +298,12 @@ struct InstructionPop<'a> {
 impl<'a> Instruction for InstructionPop<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
-            vec![vec![TokenType::Pop], vec![TokenType::Register]],
+            vec![
+                vec![TokenType::Pop].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+            ],
             vec![&self.operation, &self.operand],
         )
     }
@@ -302,9 +327,13 @@ impl<'a> Instruction for InstructionCompare<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
             vec![
-                vec![TokenType::Compare],
-                vec![TokenType::Register],
-                vec![TokenType::Register],
+                vec![TokenType::Compare].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+                vec![TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
             ],
             vec![&self.operation, &self.left_operand, &self.right_operand],
         )

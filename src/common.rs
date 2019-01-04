@@ -14,7 +14,7 @@
 #![allow(unused)]
 use std::fmt;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum TokenType {
     Move,
     Add,
