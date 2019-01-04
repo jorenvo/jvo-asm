@@ -104,6 +104,29 @@ trait Instruction {
 
         Ok(())
     }
+
+    fn calc_modrm(&self, mod_: u8, reg: u8, rm: u8) -> u8 {
+        const MOD_SIZE: u32 = 2;
+        const REG_SIZE: u32 = 3;
+        const RM_SIZE: u32 = 3;
+        let msg =
+            |name, size, value| format!("{} should be {} bits but is {:#b}", name, size, value);
+
+        // modr/m p507, p513, p603
+        if (mod_ >> MOD_SIZE) > 0 {
+            panic!(msg("mod_", MOD_SIZE, mod_));
+        }
+
+        if (reg >> REG_SIZE) > 0 {
+            panic!(msg("reg", REG_SIZE, reg));
+        }
+
+        if (rm >> RM_SIZE) > 0 {
+            panic!(msg("rm", RM_SIZE, rm));
+        }
+
+        mod_ << 6 | reg << 3 | rm
+    }
 }
 
 struct InstructionMove<'a> {
@@ -149,13 +172,15 @@ impl<'a> Instruction for InstructionMove<'a> {
             // TokenType::Register
             _ => {
                 let opcode = 0x89;
-                let mod_ = 0b11000000;
-                let reg = self.get_reg_value(&self.operand).unwrap();
-                let rm = self.get_reg_value(&self.register).unwrap();
+                let modrm = self.calc_modrm(
+                    0b11,
+                    self.get_reg_value(&self.operand).unwrap(),
+                    self.get_reg_value(&self.register).unwrap(),
+                );
 
                 Ok(vec![
                     IntermediateCode::Byte(opcode),
-                    IntermediateCode::Byte(mod_ | reg << 3 | rm),
+                    IntermediateCode::Byte(modrm),
                 ])
             }
         }
@@ -184,17 +209,12 @@ impl<'a> Instruction for InstructionAdd<'a> {
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
-        // modr/m p507, p513
-        // p603
-        // todo currently only supports adding immediate values
-        let mod_ = 0b11000000;
-        let reg = 0;
-        let rm = self.get_reg_value(&self.register).unwrap();
         let value = serialize_le(self.operand.value.parse::<u32>()?);
+        let modrm = self.calc_modrm(0b11, 0, self.get_reg_value(&self.register).unwrap());
 
         Ok(vec![
             IntermediateCode::Byte(0x81), // 32 bit adds
-            IntermediateCode::Byte(mod_ | reg | rm),
+            IntermediateCode::Byte(modrm),
             IntermediateCode::Byte(value[0]),
             IntermediateCode::Byte(value[1]),
             IntermediateCode::Byte(value[2]),
@@ -342,9 +362,6 @@ impl<'a> Instruction for InstructionCompare<'a> {
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
 
-        let opcode = 0x39;
-        let mod_ = 0b11000000;
-
         // Contrary to convention the order of these operands is more
         // in line with what you would expect. With x < y:
         // cmp x, y
@@ -353,13 +370,17 @@ impl<'a> Instruction for InstructionCompare<'a> {
         // In a conventional assembly language with AT&T syntax this
         // would make jge jump, because there the second argument is
         // compared to the first.
-        let reg = self.get_reg_value(&self.left_operand).unwrap();;
-        let rm = self.get_reg_value(&self.right_operand).unwrap();
+        let opcode = 0x39;
+        let modrm = self.calc_modrm(
+            0b11,
+            self.get_reg_value(&self.left_operand).unwrap(),
+            self.get_reg_value(&self.right_operand).unwrap(),
+        );
 
         // p 725
         Ok(vec![
             IntermediateCode::Byte(opcode),
-            IntermediateCode::Byte(mod_ | reg << 3 | rm),
+            IntermediateCode::Byte(modrm),
         ])
     }
 }
@@ -367,6 +388,41 @@ impl<'a> Instruction for InstructionCompare<'a> {
 #[cfg(test)]
 mod test_instructions {
     use super::*;
+
+    #[test]
+    #[should_panic(expected = "mod_ should be 2 bits but is 0b111")]
+    fn test_calc_modrm_panic() {
+        let i = InstructionJump {
+            operation: &Token {
+                t: None,
+                value: "".to_string(),
+            },
+
+            operand: &Token {
+                t: None,
+                value: "".to_string(),
+            },
+        };
+
+        i.calc_modrm(0b111, 0, 0);
+    }
+
+    #[test]
+    fn test_calc_modrm() {
+        let i = InstructionJump {
+            operation: &Token {
+                t: None,
+                value: "".to_string(),
+            },
+
+            operand: &Token {
+                t: None,
+                value: "".to_string(),
+            },
+        };
+
+        assert_eq!(i.calc_modrm(0b11, 0b011, 0b100), 0b11011100);
+    }
 
     fn vec_compare(va: &[IntermediateCode], vb: &[IntermediateCode]) -> bool {
         (va.len() == vb.len()) &&  // zip stops at the shortest
