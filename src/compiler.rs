@@ -791,44 +791,38 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
     let mut operation: Option<Box<Instruction>> = None;
 
     for token in tokens.iter() {
-        if token.t == Some(TokenType::Move) {
-            operation = Some(Box::new(InstructionMove {
+        operation = match token.t {
+            Some(TokenType::Move) => Some(Box::new(InstructionMove {
                 register: &tokens[0],
                 operation: &tokens[1],
                 operand: &tokens[2],
-            }));
-            break;
-        } else if token.t == Some(TokenType::Interrupt) {
-            operation = Some(Box::new(InstructionInterrupt {
+            })),
+            Some(TokenType::Interrupt) => Some(Box::new(InstructionInterrupt {
                 operation: &tokens[0],
                 operand: &tokens[1],
-            }));
-            break;
-        } else if token.t == Some(TokenType::Add) {
-            operation = Some(Box::new(InstructionAdd {
+            })),
+            Some(TokenType::Add) => Some(Box::new(InstructionAdd {
                 register: &tokens[0],
                 operation: &tokens[1],
                 operand: &tokens[2],
-            }));
-            break;
-        } else if token.t == Some(TokenType::Jump) {
-            operation = Some(Box::new(InstructionJump {
+            })),
+            Some(TokenType::Jump) => Some(Box::new(InstructionJump {
                 operation: &tokens[0],
                 operand: &tokens[1],
-            }));
-            break;
-        } else if token.t == Some(TokenType::Push) {
-            operation = Some(Box::new(InstructionPush {
+            })),
+            Some(TokenType::Push) => Some(Box::new(InstructionPush {
                 operation: &tokens[0],
                 operand: &tokens[1],
-            }));
-            break;
-        } else if token.t == Some(TokenType::Compare) {
-            operation = Some(Box::new(InstructionCompare {
+            })),
+            Some(TokenType::Compare) => Some(Box::new(InstructionCompare {
                 operation: &tokens[0],
                 left_operand: &tokens[1],
                 right_operand: &tokens[2],
-            }));
+            })),
+            _ => None,
+        };
+
+        if operation.is_some() {
             break;
         }
     }
