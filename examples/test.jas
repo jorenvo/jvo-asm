@@ -2,7 +2,8 @@
 📪start:
 ⚪ ⬅ $1
 🔴 ⬅ my_constant
-🦘 ✉interrupt
+⚖ ⚪ 🔴
+🦘< ✉interrupt
 🔴 ⬆ $4
 🦘 ✉start
 📪interrupt:

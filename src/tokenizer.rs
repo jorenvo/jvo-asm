@@ -53,6 +53,24 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "⚪" | "🔴" | "🔵" | "⚫" | "◀" | "⬇" => {
             token.t = Some(TokenType::Register);
         }
+        "🦘=" => {
+            token.t = Some(TokenType::JumpIfEqual);
+        }
+        "🦘≠" => {
+            token.t = Some(TokenType::JumpIfNotEqual);
+        }
+        "🦘<" => {
+            token.t = Some(TokenType::JumpIfLess);
+        }
+        "🦘≤" => {
+            token.t = Some(TokenType::JumpIfLessEqual);
+        }
+        "🦘>" => {
+            token.t = Some(TokenType::JumpIfGreater);
+        }
+        "🦘≥" => {
+            token.t = Some(TokenType::JumpIfGreaterEqual);
+        }
         "🦘" => {
             token.t = Some(TokenType::Jump);
         }
@@ -184,6 +202,16 @@ mod test_tokenize {
         let tokens = tokenize("🦘 123").unwrap();
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].t, Some(TokenType::Jump));
+        assert_eq!(tokens[1].t, Some(TokenType::Memory));
+        assert_eq!(tokens[1].value, "123");
+    }
+
+    #[test]
+    fn test_jump_if_condition() {
+        let tokens = tokenize("🦘≠ 123").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].t, Some(TokenType::JumpIfNotEqual));
+        assert_eq!(tokens[0].value, "🦘≠");
         assert_eq!(tokens[1].t, Some(TokenType::Memory));
         assert_eq!(tokens[1].value, "123");
     }

@@ -385,6 +385,59 @@ impl<'a> Instruction for InstructionCompare<'a> {
     }
 }
 
+struct InstructionJumpIf<'a> {
+    operation: &'a Token,
+    operand: &'a Token,
+}
+
+impl<'a> Instruction for InstructionJumpIf<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        self.validate_tokens(
+            vec![
+                vec![
+                    TokenType::JumpIfEqual,
+                    TokenType::JumpIfNotEqual,
+                    TokenType::JumpIfLess,
+                    TokenType::JumpIfLessEqual,
+                    TokenType::JumpIfGreater,
+                    TokenType::JumpIfGreaterEqual,
+                ]
+                .into_iter()
+                .collect::<HashSet<_>>(),
+                vec![TokenType::LabelReference]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+            ],
+            vec![&self.operation, &self.operand],
+        )
+    }
+
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+        self.validate()?;
+
+        // p 1058
+        // Only supports near (32 bit) jumps
+        let opcode1 = 0x0f;
+        let opcode2 = match self.operation.t {
+            Some(TokenType::JumpIfEqual) => 0x84,
+            Some(TokenType::JumpIfNotEqual) => 0x85,
+            Some(TokenType::JumpIfLess) => 0x8c,
+            Some(TokenType::JumpIfLessEqual) => 0x8e,
+            Some(TokenType::JumpIfGreater) => 0x8f,
+            Some(TokenType::JumpIfGreaterEqual) => 0x8d,
+            _ => panic!(format!(
+                "Attempting to compile invalid InstructionJumpIf: {:?}.",
+                self.operation.t
+            )),
+        };
+        Ok(vec![
+            IntermediateCode::Byte(opcode1),
+            IntermediateCode::Byte(opcode2),
+            IntermediateCode::Displacement32(self.operand.value.clone()),
+        ])
+    }
+}
+
 #[cfg(test)]
 mod test_instructions {
     use super::*;
@@ -651,6 +704,32 @@ mod test_instructions {
     }
 
     #[test]
+    fn test_jump_if() {
+        let operation = Token {
+            t: Some(TokenType::JumpIfEqual),
+            value: "🦘=".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::LabelReference),
+            value: "test_label".to_string(),
+        };
+        let instruction = InstructionJumpIf {
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0x0f),
+                IntermediateCode::Byte(0x84),
+                IntermediateCode::Displacement32("test_label".to_string())
+            ],
+            &bytes
+        ));
+    }
+
+    #[test]
     fn test_push1() {
         let operation = Token {
             t: Some(TokenType::Push),
@@ -902,6 +981,15 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
                 operation: &tokens[0],
                 left_operand: &tokens[1],
                 right_operand: &tokens[2],
+            })),
+            Some(TokenType::JumpIfEqual)
+            | Some(TokenType::JumpIfNotEqual)
+            | Some(TokenType::JumpIfLess)
+            | Some(TokenType::JumpIfLessEqual)
+            | Some(TokenType::JumpIfGreater)
+            | Some(TokenType::JumpIfGreaterEqual) => Some(Box::new(InstructionJumpIf {
+                operation: &tokens[0],
+                operand: &tokens[1],
             })),
             _ => None,
         };

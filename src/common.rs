@@ -18,6 +18,12 @@ use std::fmt;
 pub enum TokenType {
     Move,
     Add,
+    JumpIfEqual,
+    JumpIfNotEqual,
+    JumpIfLess,
+    JumpIfLessEqual,
+    JumpIfGreater,
+    JumpIfGreaterEqual,
     Jump,
     Push,
     Pop,
