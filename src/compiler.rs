@@ -362,6 +362,7 @@ impl<'a> Instruction for InstructionCompare<'a> {
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
 
+        // p 725
         // Contrary to convention the order of these operands is more
         // in line with what you would expect. With x < y:
         // cmp x, y
@@ -373,11 +374,10 @@ impl<'a> Instruction for InstructionCompare<'a> {
         let opcode = 0x39;
         let modrm = self.calc_modrm(
             0b11,
-            self.get_reg_value(&self.left_operand).unwrap(),
             self.get_reg_value(&self.right_operand).unwrap(),
+            self.get_reg_value(&self.left_operand).unwrap(),
         );
 
-        // p 725
         Ok(vec![
             IntermediateCode::Byte(opcode),
             IntermediateCode::Byte(modrm),
@@ -718,9 +718,8 @@ mod test_instructions {
         };
 
         let bytes = instruction.compile().unwrap();
-        println!("{:?}", bytes);
         assert!(vec_compare(
-            &[IntermediateCode::Byte(0x39), IntermediateCode::Byte(0xd8)],
+            &[IntermediateCode::Byte(0x39), IntermediateCode::Byte(0xc3)],
             &bytes
         ));
     }
