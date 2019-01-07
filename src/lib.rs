@@ -19,19 +19,28 @@ mod tokenizer;
 use common::{serialize_le, serialize_signed_le, IntermediateCode, TokenType};
 use compiler::*;
 use config::*;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::{error, fs};
 use tokenizer::*;
 
+const CODE_SECTION_NAME: &str = ".code";
+const STRTAB_SECTION_NAME: &str = ".shstrtab";
+
 const PHYSICAL_ENTRY_POINT: u32 = 0x1000; // align on page size
 const STRTABLE_PHYSICAL_ENTRY_POINT: u32 = 0x400;
+const DATA_SECTION_START: u32 = 0x600;
 
 const VIRTUAL_ENTRY_POINT: u32 = 0x08049000;
 
-fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
+fn process(filename: &str) -> Result<BTreeMap<String, Vec<u8>>, Box<error::Error>> {
     let content = fs::read_to_string(filename)?;
+
+    // Maps section name to code. The executable code will have
+    // CODE_SECTION_NAME as it's key. This uses a BTreeMap because
+    // it's ordered.
+    let mut section_name_to_code = BTreeMap::new();
 
     // The intermediate program consists of IntermediateCode. The
     // instructions are responsible for compiling
@@ -74,8 +83,28 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
                 continue;
             }
             Some(TokenType::Label) => {
-                // labels should point to the next instruction
+                // Labels should point to the next instruction.
                 labels.insert(tokens[0].value.clone(), intermediate_program.len());
+                continue;
+            }
+            Some(TokenType::Section) => {
+                let section_name = &tokens[0].value;
+                // Sections will be referenced with LabelReferences afterwards.
+                labels.insert(section_name.clone(), intermediate_program.len());
+
+                let mut section_data = vec![];
+                for token in &tokens[1..] {
+                    match token.t {
+                        // In data sections 32 bit values are tokenized as
+                        // Memory (no preceding $).
+                        Some(TokenType::Memory) => section_data
+                            .append(&mut serialize_signed_le(token.value.parse::<i32>()?)),
+                        _ => panic!("Unsupported token in data section: {:?}", token),
+                    }
+                }
+
+                section_name_to_code.insert(section_name.clone(), section_data);
+
                 continue;
             }
             _ => {}
@@ -137,10 +166,11 @@ fn process(filename: &str) -> Result<Vec<u8>, Box<error::Error>> {
         program.append(&mut bytes);
     }
 
-    Ok(program)
+    section_name_to_code.insert(CODE_SECTION_NAME.to_string(), program);
+    Ok(section_name_to_code)
 }
 
-fn create_string_table(strings: Vec<&str>) -> Vec<u8> {
+fn create_string_table(strings: Vec<&String>) -> Vec<u8> {
     let mut table: Vec<u8> = vec![0x00]; // first byte is defined to be null
     for s in strings {
         table.extend(s.bytes());
@@ -210,25 +240,55 @@ fn create_section_header_entry(
     entry
 }
 
-fn create_section_header(program_size: u32, strtable_size: u32) -> Vec<u8> {
-    let mut section_header: Vec<u8> = vec![];
+fn create_section_header(
+    program_size: u32,
+    data_section_sizes: Vec<u32>,
+    data_section_names: Vec<&String>,
+    strtable_size: u32,
+) -> Vec<u8> {
     const SHT_NULL: u32 = 0x00;
     const SHT_PROGBITS: u32 = 0x01;
     const SHT_STRTAB: u32 = 0x03;
+    const SHF_WRITE: u32 = 0x01;
     const SHF_ALLOC: u32 = 0x02;
     const SHF_EXECINSTR: u32 = 0x04;
 
-    const STRTAB_TEXT_INDEX: u32 = 0x01;
+    let mut section_header: Vec<u8> = vec![];
+    let mut strtab_index = 0x01;
 
-    // todo make dynamic
-    let strtab_strtab_index: u32 = 0x01 + ".text\0".to_string().len() as u32;
-
+    // sentinel
     section_header.append(&mut create_section_header_entry(
         0x00, SHT_NULL, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ));
 
+    let mut section_start = DATA_SECTION_START;
+    for (index, size) in data_section_sizes.iter().enumerate() {
+        if section_start >= PHYSICAL_ENTRY_POINT {
+            // TODO: the physical entry point could be incremented by
+            // 4 KiB here instead of panicking.
+            panic!("Data section too big.");
+        }
+
+        section_header.append(&mut create_section_header_entry(
+            strtab_index,
+            SHT_PROGBITS,
+            SHF_WRITE | SHF_ALLOC,
+            0x00,
+            section_start,
+            *size,
+            0x00,
+            0x00,
+            0x01, // (no alignment constraint)
+            0x00,
+        ));
+
+        section_start += size;
+        strtab_index += data_section_names[index].len() as u32 + 1;
+    }
+
+    // executable code
     section_header.append(&mut create_section_header_entry(
-        STRTAB_TEXT_INDEX,
+        strtab_index,
         SHT_PROGBITS,
         SHF_ALLOC | SHF_EXECINSTR,
         VIRTUAL_ENTRY_POINT,
@@ -240,8 +300,9 @@ fn create_section_header(program_size: u32, strtable_size: u32) -> Vec<u8> {
         0x00,
     ));
 
+    // string table
     section_header.append(&mut create_section_header_entry(
-        strtab_strtab_index,
+        strtab_index + (CODE_SECTION_NAME.len() + 1) as u32,
         SHT_STRTAB,
         0x00,
         0x00,
@@ -252,6 +313,7 @@ fn create_section_header(program_size: u32, strtable_size: u32) -> Vec<u8> {
         0x01, // (no alignment constraint)
         0x00,
     ));
+
 
     section_header
 }
@@ -303,7 +365,7 @@ fn create_program_header(program_size: u32) -> Vec<u8> {
     program_header
 }
 
-fn create_elf_header() -> Vec<u8> {
+fn create_elf_header(number_of_sections: u32) -> Vec<u8> {
     let mut header: Vec<u8> = vec![];
 
     // Magic number
@@ -361,10 +423,10 @@ fn create_elf_header() -> Vec<u8> {
     header.append(&mut vec![40, 0x00]);
 
     // e_shnum: number of entries in section header table
-    header.append(&mut vec![0x03, 0x00]);
+    header.append(&mut vec![number_of_sections as u8, 0x00]);
 
     // e_shstrndx: index of section header table entry that contains section names
-    header.append(&mut vec![0x02, 0x00]);
+    header.append(&mut vec![(number_of_sections - 1) as u8, 0x00]);
 
     header
 }
@@ -375,7 +437,7 @@ mod test_elf {
 
     #[test]
     fn test_elf_header_length() {
-        assert_eq!(create_elf_header().len(), 52);
+        assert_eq!(create_elf_header(1).len(), 52);
     }
 
     #[test]
@@ -385,7 +447,7 @@ mod test_elf {
         const ENTRIES: usize = 3;
 
         assert_eq!(
-            create_section_header(0, 0).len(),
+            create_section_header(0, vec![], vec![], 0).len(),
             BYTES_PER_FIELD * FIELDS_PER_ENTRY * ENTRIES
         );
     }
@@ -399,11 +461,28 @@ mod test_elf {
 pub fn run(config: Config) -> std::io::Result<()> {
     println!("compile {}", config.filename);
 
-    let elf_header = create_elf_header();
-    let program = process(&config.filename).unwrap();
+    let mut data_sections = process(&config.filename).unwrap();
+
+    // + 2 for string table and null sentinel
+    let elf_header = create_elf_header(data_sections.len() as u32 + 2);
+    let program = data_sections.remove(CODE_SECTION_NAME).unwrap();
     let program_header = create_program_header(program.len() as u32);
-    let string_table = create_string_table(vec![".text", ".shstrtab"]);
-    let section_header = create_section_header(program.len() as u32, string_table.len() as u32);
+
+    let mut string_table = create_string_table(data_sections.keys().collect());
+
+    // add str name for code and strtab at end of table
+    string_table.extend(CODE_SECTION_NAME.bytes());
+    string_table.push(0x00);
+    string_table.extend(STRTAB_SECTION_NAME.bytes());
+    string_table.push(0x00);
+
+    let data_section_sizes = data_sections.iter().map(|(_, v)| v.len() as u32).collect();
+    let section_header = create_section_header(
+        program.len() as u32,
+        data_section_sizes,
+        data_sections.keys().collect(),
+        string_table.len() as u32,
+    );
     let mut file = fs::File::create("a.out")?;
     file.set_permissions(PermissionsExt::from_mode(0o755))?;
 
@@ -411,7 +490,7 @@ pub fn run(config: Config) -> std::io::Result<()> {
     file.write_all(&program_header)?;
     file.write_all(&section_header)?;
 
-    // string table goes at 0x400
+    // string table starts at STRTABLE_PHYSICAL_ENTRY_POINT
     let padding = vec![
         0;
         STRTABLE_PHYSICAL_ENTRY_POINT as usize
@@ -422,12 +501,25 @@ pub fn run(config: Config) -> std::io::Result<()> {
     file.write_all(&padding)?;
     file.write_all(&string_table)?;
 
+    // insert data sections
+    // DATA_SECTION_START
+    let padding = vec![
+        0;
+        DATA_SECTION_START as usize
+            - STRTABLE_PHYSICAL_ENTRY_POINT as usize
+            - string_table.len()
+    ];
+    file.write_all(&padding)?;
+    for (_, data) in data_sections.iter() {
+        file.write_all(&data)?;
+    }
+
     // pad 4KB page
     let padding = vec![
         0;
         PHYSICAL_ENTRY_POINT as usize
-            - STRTABLE_PHYSICAL_ENTRY_POINT as usize
-            - string_table.len()
+            - DATA_SECTION_START as usize
+            - data_sections.iter().map(|(_, bytes)| bytes.len()).sum::<usize>()
     ];
     file.write_all(&padding)?;
     file.write_all(&program)?;

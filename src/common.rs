@@ -11,7 +11,6 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#![allow(unused)]
 use std::fmt;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -29,7 +28,6 @@ pub enum TokenType {
     Pop,
     Value,
     Memory,
-    BasePointerMemory,
     Register,
     Return,
     Compare,
@@ -38,6 +36,7 @@ pub enum TokenType {
     LabelReference,
     Constant,
     ConstantReference, // <- this should be translated before compilation
+    Section,
 }
 
 #[derive(Clone, Debug)]

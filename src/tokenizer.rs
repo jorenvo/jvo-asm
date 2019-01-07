@@ -90,6 +90,10 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
             let to_trim: &[_] = &[':', '📪'];
             token.value = token.value.trim_matches(to_trim).to_string();
         }
+        _ if word.starts_with("📗") => {
+            token.t = Some(TokenType::Section);
+            token.value.remove(0);
+        }
         _ if word.starts_with("✉") => {
             token.t = Some(TokenType::LabelReference);
             token.value.remove(0);

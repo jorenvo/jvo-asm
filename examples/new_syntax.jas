@@ -40,3 +40,5 @@
 📪my_label:
 # define constant
 🖊️ my_constant 321
+# data section
+📗my_section 4, 5, 8, 10
