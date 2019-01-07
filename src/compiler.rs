@@ -425,10 +425,10 @@ impl<'a> Instruction for InstructionJumpIf<'a> {
             Some(TokenType::JumpIfLessEqual) => 0x8e,
             Some(TokenType::JumpIfGreater) => 0x8f,
             Some(TokenType::JumpIfGreaterEqual) => 0x8d,
-            _ => panic!(format!(
+            _ => panic!(
                 "Attempting to compile invalid InstructionJumpIf: {:?}.",
                 self.operation.t
-            )),
+            ),
         };
         Ok(vec![
             IntermediateCode::Byte(opcode1),
