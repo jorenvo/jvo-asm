@@ -1,0 +1,1 @@
+* jvo-asm [[https://travis-ci.org/jorenvo/jvo-asm][file:https://travis-ci.com/jorenvo/jvo-asm.svg?branch=master]]
