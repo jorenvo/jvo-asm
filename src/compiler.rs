@@ -280,12 +280,12 @@ impl<'a> Instruction for InstructionInterrupt<'a> {
     }
 }
 
-struct InstructionPush<'a> {
+struct InstructionPushImmediate<'a> {
     operation: &'a Token,
     operand: &'a Token,
 }
 
-impl<'a> Instruction for InstructionPush<'a> {
+impl<'a> Instruction for InstructionPushImmediate<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
             vec![
@@ -739,7 +739,7 @@ mod test_instructions {
             t: Some(TokenType::Value),
             value: "174285409".to_string(),
         };
-        let instruction = InstructionPush {
+        let instruction = InstructionPushImmediate {
             operation: &operation,
             operand: &operand,
         };
@@ -892,7 +892,7 @@ mod test_instructions {
             t: Some(TokenType::Value),
             value: "123".to_string(),
         };
-        let instruction = InstructionPush {
+        let instruction = InstructionPushImmediate {
             operation: &operation,
             operand: &operand,
         };
@@ -973,7 +973,7 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
                 operation: &tokens[0],
                 operand: &tokens[1],
             })),
-            Some(TokenType::Push) => Some(Box::new(InstructionPush {
+            Some(TokenType::Push) => Some(Box::new(InstructionPushImmediate {
                 operation: &tokens[0],
                 operand: &tokens[1],
             })),
