@@ -3,6 +3,7 @@
 🔴: %ebx
 🔵: %ecx
 ⚫: %edx
+⬇: %ebp
 
 # move
 ⚪ ⬅️ $4
@@ -42,3 +43,7 @@
 🖊️ my_constant 321
 # data section
 📗my_section 4, 5, 8, 10
+
+# offset
+⚪ ⬅️ ST_ARG~⬇
+⚪ ⬅️ $8~⬇

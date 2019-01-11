@@ -105,27 +105,27 @@ trait Instruction {
         Ok(())
     }
 
-    fn calc_modrm(&self, mod_: u8, reg: u8, rm: u8) -> u8 {
+    fn calc_modrm(&self, mod_: u8, reg_opcode: u8, rm: u8) -> u8 {
         const MOD_SIZE: u32 = 2;
-        const REG_SIZE: u32 = 3;
+        const REG_OPCODE_SIZE: u32 = 3;
         const RM_SIZE: u32 = 3;
         let msg =
             |name, size, value| format!("{} should be {} bits but is {:#b}", name, size, value);
 
         // modr/m p507, p513, p603
         if (mod_ >> MOD_SIZE) > 0 {
-            panic!(msg("mod_", MOD_SIZE, mod_));
+            panic!(msg("mod", MOD_SIZE, mod_));
         }
 
-        if (reg >> REG_SIZE) > 0 {
-            panic!(msg("reg", REG_SIZE, reg));
+        if (reg_opcode >> REG_OPCODE_SIZE) > 0 {
+            panic!(msg("reg_opcode", REG_OPCODE_SIZE, reg_opcode));
         }
 
         if (rm >> RM_SIZE) > 0 {
             panic!(msg("rm", RM_SIZE, rm));
         }
 
-        mod_ << 6 | reg << 3 | rm
+        mod_ << 6 | reg_opcode << 3 | rm
     }
 }
 
@@ -306,6 +306,48 @@ impl<'a> Instruction for InstructionPushImmediate<'a> {
             IntermediateCode::Byte(value[1]),
             IntermediateCode::Byte(value[2]),
             IntermediateCode::Byte(value[3]),
+        ])
+    }
+}
+
+struct InstructionPushModRM<'a> {
+    operation: &'a Token,
+    offset: &'a Token,
+    register: &'a Token,
+}
+
+impl<'a> Instruction for InstructionPushModRM<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        self.validate_tokens(
+            vec![
+                vec![TokenType::Push].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Value].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+            ],
+            vec![&self.operation, &self.offset, &self.register],
+        )
+    }
+
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+        self.validate()?;
+
+        let opcode = 0xff;
+
+        let extended_opcode = 6;
+        let mod_ = 0b01;
+        let modrm = self.calc_modrm(
+            mod_,
+            extended_opcode,
+            self.get_reg_value(&self.register).unwrap(),
+        );
+
+        // p 1633
+        Ok(vec![
+            IntermediateCode::Byte(opcode),
+            IntermediateCode::Byte(modrm),
+            IntermediateCode::Byte(self.offset.value.parse::<i8>()? as u8),
         ])
     }
 }
@@ -730,7 +772,7 @@ mod test_instructions {
     }
 
     #[test]
-    fn test_push1() {
+    fn test_push_immediate1() {
         let operation = Token {
             t: Some(TokenType::Push),
             value: "📥".to_string(),
@@ -752,6 +794,37 @@ mod test_instructions {
                 IntermediateCode::Byte(0x62),
                 IntermediateCode::Byte(0x63),
                 IntermediateCode::Byte(0x0a),
+            ],
+            &bytes
+        ));
+    }
+
+    #[test]
+    fn test_push_modrm1() {
+        let operation = Token {
+            t: Some(TokenType::Push),
+            value: "📥".to_string(),
+        };
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⬇".to_string(),
+        };
+        let offset = Token {
+            t: Some(TokenType::Value),
+            value: "-4".to_string(),
+        };
+        let instruction = InstructionPushModRM {
+            operation: &operation,
+            register: &register,
+            offset: &offset,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0xff),
+                IntermediateCode::Byte(0x75),
+                IntermediateCode::Byte(0xfc),
             ],
             &bytes
         ));
@@ -883,7 +956,7 @@ mod test_instructions {
     }
 
     #[test]
-    fn test_push_validate() {
+    fn test_push_immediate_validate() {
         let operation = Token {
             t: Some(TokenType::Push),
             value: "📥".to_string(),
