@@ -159,7 +159,7 @@ impl<'a> Instruction for InstructionMove<'a> {
                 let mut opcode = 0xb8;
                 // register is specified in 3 LSb's
                 opcode |= self.get_reg_value(self.register)?;
-                let value = serialize_le(self.operand.value.parse::<u32>()?);
+                let value = self.operand.value.parse::<u32>()?.to_le_bytes();
 
                 Ok(vec![
                     IntermediateCode::Byte(opcode),
@@ -219,7 +219,7 @@ impl<'a> Instruction for InstructionAdd<'a> {
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
-        let value = serialize_le(self.operand.value.parse::<u32>()?);
+        let value = self.operand.value.parse::<u32>()?.to_le_bytes();
         let modrm = self.calc_modrm(0b11, 0, self.get_reg_value(&self.register).unwrap());
 
         Ok(vec![
@@ -308,7 +308,7 @@ impl<'a> Instruction for InstructionPushImmediate<'a> {
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
-        let value = serialize_le(self.operand.value.parse::<u32>()?);
+        let value = self.operand.value.parse::<u32>()?.to_le_bytes();
         // p 1633
         Ok(vec![
             IntermediateCode::Byte(0x68),

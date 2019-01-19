@@ -16,7 +16,7 @@ mod compiler;
 pub mod config;
 mod tokenizer;
 
-use common::{serialize_le, serialize_signed_le, IntermediateCode, TokenType};
+use common::{IntermediateCode, TokenType};
 use compiler::*;
 use config::*;
 use std::collections::{BTreeMap, HashMap};
@@ -98,7 +98,7 @@ fn process(filename: &str) -> Result<BTreeMap<String, Vec<u8>>, Box<error::Error
                         // In data sections 32 bit values are tokenized as
                         // Memory (no preceding $).
                         Some(TokenType::Memory) => section_data
-                            .append(&mut serialize_signed_le(token.value.parse::<i32>()?)),
+                            .extend_from_slice(&token.value.parse::<i32>()?.to_le_bytes()),
                         _ => panic!("Unsupported token in data section: {:?}", token),
                     }
                 }
@@ -157,7 +157,9 @@ fn process(filename: &str) -> Result<BTreeMap<String, Vec<u8>>, Box<error::Error
                     let instruction_end =
                         i as i32 + *intermediate_index_instruction_offset.get(&i).unwrap() as i32;
                     let displacement = *target_i as i32 - instruction_end;
-                    serialize_signed_le(displacement)
+                    let mut v = Vec::new();
+                    v.extend_from_slice(&displacement.to_le_bytes());
+                    v
                 }
                 None => panic!("Unknown label {}", s),
             },
@@ -208,34 +210,34 @@ fn create_section_header_entry(
     // } Elf32_Shdr;
 
     // sh_name
-    entry.append(&mut serialize_le(sh_name));
+    entry.extend_from_slice(&sh_name.to_le_bytes());
 
     // sh_type
-    entry.append(&mut serialize_le(sh_type));
+    entry.extend_from_slice(&sh_type.to_le_bytes());
 
     // sh_flags
-    entry.append(&mut serialize_le(sh_flags));
+    entry.extend_from_slice(&sh_flags.to_le_bytes());
 
     // sh_addr
-    entry.append(&mut serialize_le(sh_addr));
+    entry.extend_from_slice(&sh_addr.to_le_bytes());
 
     // sh_offset
-    entry.append(&mut serialize_le(sh_offset));
+    entry.extend_from_slice(&sh_offset.to_le_bytes());
 
     // sh_size
-    entry.append(&mut serialize_le(sh_size));
+    entry.extend_from_slice(&sh_size.to_le_bytes());
 
     // sh_link
-    entry.append(&mut serialize_le(sh_link));
+    entry.extend_from_slice(&sh_link.to_le_bytes());
 
     // sh_info
-    entry.append(&mut serialize_le(sh_info));
+    entry.extend_from_slice(&sh_info.to_le_bytes());
 
     // sh_addralign
-    entry.append(&mut serialize_le(sh_addralign));
+    entry.extend_from_slice(&sh_addralign.to_le_bytes());
 
     // sh_entsize
-    entry.append(&mut serialize_le(sh_entsize));
+    entry.extend_from_slice(&sh_entsize.to_le_bytes());
 
     entry
 }
@@ -337,30 +339,30 @@ fn create_program_header(program_size: u32) -> Vec<u8> {
 
     // p_type
     const PT_LOAD: u32 = 1;
-    program_header.append(&mut serialize_le(PT_LOAD));
+    program_header.extend_from_slice(&PT_LOAD.to_le_bytes());
 
     // p_offset
-    program_header.append(&mut serialize_le(PHYSICAL_ENTRY_POINT));
+    program_header.extend_from_slice(&PHYSICAL_ENTRY_POINT.to_le_bytes());
 
     // p_vaddr
-    program_header.append(&mut serialize_le(VIRTUAL_ENTRY_POINT));
+    program_header.extend_from_slice(&VIRTUAL_ENTRY_POINT.to_le_bytes());
 
     // p_paddr (unspecified on System V, but seems to usually be virtual entry point)
-    program_header.append(&mut serialize_le(VIRTUAL_ENTRY_POINT));
+    program_header.extend_from_slice(&VIRTUAL_ENTRY_POINT.to_le_bytes());
 
     // p_filesz
-    program_header.append(&mut serialize_le(program_size));
+    program_header.extend_from_slice(&program_size.to_le_bytes());
 
     // p_memsz
-    program_header.append(&mut serialize_le(program_size));
+    program_header.extend_from_slice(&program_size.to_le_bytes());
 
     // p_flags
     const PF_X_R: u32 = 1 | (1 << 2);
-    program_header.append(&mut serialize_le(PF_X_R));
+    program_header.extend_from_slice(&PF_X_R.to_le_bytes());
 
     // p_align
     // align on 4KB
-    program_header.append(&mut serialize_le(0x1000));
+    program_header.extend_from_slice(&(0x1000 as u32).to_le_bytes());
 
     program_header
 }
@@ -396,16 +398,16 @@ fn create_elf_header(number_of_sections: u32) -> Vec<u8> {
     header.append(&mut vec![0x03, 0x00]);
 
     // ELF version 1
-    header.append(&mut serialize_le(1));
+    header.extend_from_slice(&(1 as u32).to_le_bytes());
 
     // e_entry
-    header.append(&mut serialize_le(VIRTUAL_ENTRY_POINT));
+    header.extend_from_slice(&VIRTUAL_ENTRY_POINT.to_le_bytes());
 
     // Start of program header table (immediately after this header)
-    header.append(&mut serialize_le(0x34));
+    header.extend_from_slice(&(0x34 as u32).to_le_bytes());
 
     // e_shoff: Start of section header table
-    header.append(&mut serialize_le(0x54));
+    header.extend_from_slice(&(0x54 as u32).to_le_bytes());
 
     // eflags
     header.append(&mut vec![0x00; 4]);
