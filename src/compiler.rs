@@ -143,7 +143,7 @@ impl<'a> Instruction for InstructionMove<'a> {
                     .into_iter()
                     .collect::<HashSet<_>>(),
                 vec![TokenType::Move].into_iter().collect::<HashSet<_>>(),
-                vec![TokenType::Value, TokenType::Register]
+                vec![TokenType::Value, TokenType::Register, TokenType::LabelReference]
                     .into_iter()
                     .collect::<HashSet<_>>(),
             ],
@@ -167,6 +167,16 @@ impl<'a> Instruction for InstructionMove<'a> {
                     IntermediateCode::Byte(value[1]),
                     IntermediateCode::Byte(value[2]),
                     IntermediateCode::Byte(value[3]),
+                ])
+            }
+            Some(TokenType::LabelReference) => {
+                let mut opcode = 0xb8;
+                // register is specified in 3 LSb's
+                opcode |= self.get_reg_value(self.register)?;
+
+                Ok(vec![
+                    IntermediateCode::Byte(opcode),
+                    IntermediateCode::Displacement32(self.operand.value.clone()),
                 ])
             }
             // TokenType::Register
@@ -485,7 +495,7 @@ mod test_instructions {
     use super::*;
 
     #[test]
-    #[should_panic(expected = "mod_ should be 2 bits but is 0b111")]
+    #[should_panic(expected = "mod should be 2 bits but is 0b111")]
     fn test_calc_modrm_panic() {
         let i = InstructionJump {
             operation: &Token {
