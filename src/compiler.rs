@@ -1050,6 +1050,10 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
                 operation: &tokens[0],
                 operand: &tokens[1],
             })),
+            Some(TokenType::Pop) => Some(Box::new(InstructionPop {
+                operation: &tokens[0],
+                operand: &tokens[1],
+            })),
             Some(TokenType::Compare) => Some(Box::new(InstructionCompare {
                 operation: &tokens[0],
                 left_operand: &tokens[1],

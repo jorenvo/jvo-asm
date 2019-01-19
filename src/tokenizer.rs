@@ -77,6 +77,9 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "📥" => {
             token.t = Some(TokenType::Push);
         }
+        "📤" => {
+            token.t = Some(TokenType::Pop);
+        }
         "⚖" => {
             token.t = Some(TokenType::Compare);
         }
