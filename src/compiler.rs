@@ -1056,10 +1056,6 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
                 operation: &tokens[0],
                 operand: &tokens[1],
             })),
-            Some(TokenType::Push) => Some(Box::new(InstructionPushImmediate {
-                operation: &tokens[0],
-                operand: &tokens[1],
-            })),
             Some(TokenType::Pop) => Some(Box::new(InstructionPop {
                 operation: &tokens[0],
                 operand: &tokens[1],
@@ -1078,6 +1074,20 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
                 operation: &tokens[0],
                 operand: &tokens[1],
             })),
+            Some(TokenType::Push) => {
+                if tokens.len() == 2 {
+                    Some(Box::new(InstructionPushImmediate {
+                        operation: &tokens[0],
+                        operand: &tokens[1],
+                    }))
+                } else {
+                    Some(Box::new(InstructionPushModRM {
+                        operation: &tokens[0],
+                        offset: &tokens[1],
+                        register: &tokens[2],
+                    }))
+                }
+            },
             _ => None,
         };
 

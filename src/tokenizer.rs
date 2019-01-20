@@ -125,8 +125,9 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
 pub fn tokenize(line: &str) -> Result<Vec<Token>, Box<error::Error>> {
     let mut tokens = vec![];
     let ignore_char = |c: char| c == ',' || c.is_whitespace();
+    let is_delimiter = |c: char| c == ' ' || c == '~';
 
-    for word in line.split(' ') {
+    for word in line.split(is_delimiter) {
         let word = word.trim_matches(ignore_char);
         if word.is_empty() {
             continue;
@@ -267,5 +268,14 @@ mod test_tokenize {
     fn test_full_line_comment() {
         let tokens = tokenize("# ↩ some comment").unwrap();
         assert_eq!(tokens.len(), 0);
+    }
+
+    #[test]
+    fn test_constant_offset() {
+        let tokens = tokenize("📥 offset~⬇").unwrap();
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].t, Some(TokenType::Push));
+        assert_eq!(tokens[1].t, Some(TokenType::ConstantReference));
+        assert_eq!(tokens[2].t, Some(TokenType::Register));
     }
 }

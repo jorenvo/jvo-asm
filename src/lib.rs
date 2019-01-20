@@ -16,7 +16,7 @@ mod compiler;
 pub mod config;
 mod tokenizer;
 
-use common::{IntermediateCode, TokenType};
+use common::{IntermediateCode, Token, TokenType};
 use compiler::*;
 use config::*;
 use std::collections::{BTreeMap, HashMap};
@@ -33,6 +33,8 @@ const STRTABLE_PHYSICAL_ENTRY_POINT: u32 = 0x400;
 const DATA_SECTION_START: u32 = 0x600;
 
 const VIRTUAL_ENTRY_POINT: u32 = 0x08049000;
+const DATA_SECTION_VIRTUAL_START: u32 =
+    VIRTUAL_ENTRY_POINT - PHYSICAL_ENTRY_POINT - DATA_SECTION_START;
 
 fn process(filename: &str) -> Result<BTreeMap<String, Vec<u8>>, Box<error::Error>> {
     let content = fs::read_to_string(filename)?;
@@ -56,6 +58,9 @@ fn process(filename: &str) -> Result<BTreeMap<String, Vec<u8>>, Box<error::Error
     // This maps a label String to the index in the intermediate
     // program it points to.
     let mut labels = HashMap::new();
+
+    // This holds the size of all processed data sections.
+    let mut data_section_size: usize = 0;
 
     // This maps constant names to the tokens they should be replaced
     // with.
@@ -88,9 +93,16 @@ fn process(filename: &str) -> Result<BTreeMap<String, Vec<u8>>, Box<error::Error
                 continue;
             }
             Some(TokenType::Section) => {
+                // Sections will be referenced with Constants
+                // afterwards. Create a Value Token with the virtual
+                // address these constants will be replaced by.
+                let virtual_address = Token {
+                    t: Some(TokenType::Value),
+                    value: (DATA_SECTION_VIRTUAL_START as usize + data_section_size).to_string(),
+                };
                 let section_name = &tokens[0].value;
-                // Sections will be referenced with LabelReferences afterwards.
-                labels.insert(section_name.clone(), intermediate_program.len());
+                constants.insert(section_name.clone(), virtual_address);
+                data_section_size += tokens[1..].len();
 
                 let mut section_data = vec![];
                 for token in &tokens[1..] {
@@ -263,7 +275,7 @@ fn create_section_header(
         0x00, SHT_NULL, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ));
 
-    let mut virtual_address = VIRTUAL_ENTRY_POINT - (PHYSICAL_ENTRY_POINT - DATA_SECTION_START);
+    let mut virtual_address = DATA_SECTION_VIRTUAL_START;
     let mut section_start = DATA_SECTION_START;
     for (index, size) in data_section_sizes.iter().enumerate() {
         if section_start >= PHYSICAL_ENTRY_POINT {
@@ -317,7 +329,6 @@ fn create_section_header(
         0x01, // (no alignment constraint)
         0x00,
     ));
-
 
     section_header
 }
@@ -523,7 +534,10 @@ pub fn run(config: Config) -> std::io::Result<()> {
         0;
         PHYSICAL_ENTRY_POINT as usize
             - DATA_SECTION_START as usize
-            - data_sections.iter().map(|(_, bytes)| bytes.len()).sum::<usize>()
+            - data_sections
+                .iter()
+                .map(|(_, bytes)| bytes.len())
+                .sum::<usize>()
     ];
     file.write_all(&padding)?;
     file.write_all(&program)?;
