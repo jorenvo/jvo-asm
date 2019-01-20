@@ -263,6 +263,7 @@ fn create_section_header(
         0x00, SHT_NULL, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ));
 
+    let mut virtual_address = VIRTUAL_ENTRY_POINT - (PHYSICAL_ENTRY_POINT - DATA_SECTION_START);
     let mut section_start = DATA_SECTION_START;
     for (index, size) in data_section_sizes.iter().enumerate() {
         if section_start >= PHYSICAL_ENTRY_POINT {
@@ -275,7 +276,7 @@ fn create_section_header(
             strtab_index,
             SHT_PROGBITS,
             SHF_WRITE | SHF_ALLOC,
-            0x00,
+            virtual_address,
             section_start,
             *size,
             0x00,
@@ -285,6 +286,7 @@ fn create_section_header(
         ));
 
         section_start += size;
+        virtual_address += size;
         strtab_index += data_section_names[index].len() as u32 + 1;
     }
 
