@@ -589,6 +589,11 @@ pub fn run(config: Config) -> std::io::Result<()> {
         file.write_all(&padding)?;
     }
 
+    // TODO fix this when PHYSICAL_ENTRY_POINT is dynamic
+    if data_sections.is_empty() {
+        file.write_all(&vec![0; PAGE_SIZE as usize])?;
+    }
+
     file.write_all(&program)?;
 
     Ok(())
