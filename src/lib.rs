@@ -19,7 +19,7 @@ mod tokenizer;
 use common::{IntermediateCode, Token, TokenType};
 use compiler::*;
 use config::*;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::{error, fs};
@@ -28,21 +28,28 @@ use tokenizer::*;
 const CODE_SECTION_NAME: &str = ".code";
 const STRTAB_SECTION_NAME: &str = ".shstrtab";
 
-const PHYSICAL_ENTRY_POINT: u32 = 0x1000; // align on page size
+const DATA_SECTION_PHYSICAL_START: u32 = 0x1000;
+const PHYSICAL_ENTRY_POINT: u32 = 0x2000;
 const STRTABLE_PHYSICAL_ENTRY_POINT: u32 = 0x400;
-const DATA_SECTION_START: u32 = 0x600;
 
 const VIRTUAL_ENTRY_POINT: u32 = 0x08049000;
 const DATA_SECTION_VIRTUAL_START: u32 =
-    VIRTUAL_ENTRY_POINT - PHYSICAL_ENTRY_POINT - DATA_SECTION_START;
+    VIRTUAL_ENTRY_POINT - PHYSICAL_ENTRY_POINT - DATA_SECTION_PHYSICAL_START;
 
-fn process(filename: &str) -> Result<BTreeMap<String, Vec<u8>>, Box<error::Error>> {
+const PAGE_SIZE: u32 = 0x1000;
+
+struct DataSection {
+    name: String,
+    bytes: Vec<u8>,
+}
+
+fn process(filename: &str) -> Result<Vec<DataSection>, Box<error::Error>> {
     let content = fs::read_to_string(filename)?;
 
-    // Maps section name to code. The executable code will have
-    // CODE_SECTION_NAME as it's key. This uses a BTreeMap because
-    // it's ordered.
-    let mut section_name_to_code = BTreeMap::new();
+    // Contains a section for the executable code and other data
+    // sections. The executable code will have CODE_SECTION_NAME as
+    // it's key.
+    let mut sections: Vec<DataSection> = vec![];
 
     // The intermediate program consists of IntermediateCode. The
     // instructions are responsible for compiling
@@ -115,7 +122,10 @@ fn process(filename: &str) -> Result<BTreeMap<String, Vec<u8>>, Box<error::Error
                     }
                 }
 
-                section_name_to_code.insert(section_name.clone(), section_data);
+                sections.push(DataSection {
+                    name: section_name.clone(),
+                    bytes: section_data,
+                });
 
                 continue;
             }
@@ -180,11 +190,14 @@ fn process(filename: &str) -> Result<BTreeMap<String, Vec<u8>>, Box<error::Error
         program.append(&mut bytes);
     }
 
-    section_name_to_code.insert(CODE_SECTION_NAME.to_string(), program);
-    Ok(section_name_to_code)
+    sections.push(DataSection {
+        name: CODE_SECTION_NAME.to_string(),
+        bytes: program,
+    });
+    Ok(sections)
 }
 
-fn create_string_table(strings: Vec<&String>) -> Vec<u8> {
+fn create_string_table(strings: &Vec<&String>) -> Vec<u8> {
     let mut table: Vec<u8> = vec![0x00]; // first byte is defined to be null
     for s in strings {
         table.extend(s.bytes());
@@ -256,8 +269,8 @@ fn create_section_header_entry(
 
 fn create_section_header(
     program_size: u32,
-    data_section_sizes: Vec<u32>,
-    data_section_names: Vec<&String>,
+    data_section_sizes: &Vec<u32>,
+    data_section_names: &Vec<&String>,
     strtable_size: u32,
 ) -> Vec<u8> {
     const SHT_NULL: u32 = 0x00;
@@ -276,7 +289,7 @@ fn create_section_header(
     ));
 
     let mut virtual_address = DATA_SECTION_VIRTUAL_START;
-    let mut section_start = DATA_SECTION_START;
+    let mut section_start = DATA_SECTION_PHYSICAL_START;
     for (index, size) in data_section_sizes.iter().enumerate() {
         if section_start >= PHYSICAL_ENTRY_POINT {
             // TODO: the physical entry point could be incremented by
@@ -333,8 +346,13 @@ fn create_section_header(
     section_header
 }
 
-fn create_program_header(program_size: u32) -> Vec<u8> {
-    let mut program_header: Vec<u8> = vec![];
+fn create_program_header_entry(
+    size: u32,
+    offset: u32,
+    virtual_address: u32,
+    flags: u32,
+) -> Vec<u8> {
+    let mut entry: Vec<u8> = vec![];
     // all members are 4 bytes
     // typedef struct elf32_phdr{
     //     Elf32_Word	p_type;
@@ -352,35 +370,64 @@ fn create_program_header(program_size: u32) -> Vec<u8> {
 
     // p_type
     const PT_LOAD: u32 = 1;
-    program_header.extend_from_slice(&PT_LOAD.to_le_bytes());
+    entry.extend_from_slice(&PT_LOAD.to_le_bytes());
 
     // p_offset
-    program_header.extend_from_slice(&PHYSICAL_ENTRY_POINT.to_le_bytes());
+    entry.extend_from_slice(&offset.to_le_bytes());
 
     // p_vaddr
-    program_header.extend_from_slice(&VIRTUAL_ENTRY_POINT.to_le_bytes());
+    entry.extend_from_slice(&virtual_address.to_le_bytes());
 
     // p_paddr (unspecified on System V, but seems to usually be virtual entry point)
-    program_header.extend_from_slice(&VIRTUAL_ENTRY_POINT.to_le_bytes());
+    entry.extend_from_slice(&virtual_address.to_le_bytes());
 
     // p_filesz
-    program_header.extend_from_slice(&program_size.to_le_bytes());
+    entry.extend_from_slice(&size.to_le_bytes());
 
     // p_memsz
-    program_header.extend_from_slice(&program_size.to_le_bytes());
+    entry.extend_from_slice(&size.to_le_bytes());
 
     // p_flags
-    const PF_X_R: u32 = 1 | (1 << 2);
-    program_header.extend_from_slice(&PF_X_R.to_le_bytes());
+    entry.extend_from_slice(&flags.to_le_bytes());
 
     // p_align
     // align on 4KB
-    program_header.extend_from_slice(&(0x1000 as u32).to_le_bytes());
+    entry.extend_from_slice(&(PAGE_SIZE as u32).to_le_bytes());
+
+    entry
+}
+
+fn create_program_header(program_size: u32, data_section_sizes: &Vec<u32>) -> Vec<u8> {
+    const PF_X_R: u32 = 1 | (1 << 2);
+    let mut program_header = create_program_header_entry(
+        program_size,
+        PHYSICAL_ENTRY_POINT,
+        VIRTUAL_ENTRY_POINT,
+        PF_X_R,
+    );
+
+    let mut physical_address = DATA_SECTION_PHYSICAL_START;
+    let mut virtual_address = DATA_SECTION_VIRTUAL_START;
+    const PF_R_W: u32 = (1 << 2) | (1 << 1);
+    for size in data_section_sizes.iter() {
+        program_header.append(&mut create_program_header_entry(
+            *size,
+            physical_address,
+            virtual_address,
+            PF_R_W,
+        ));
+
+        // TODO program sizes are assumed to be 4KB
+        physical_address += PAGE_SIZE;
+        virtual_address += PAGE_SIZE;
+    }
 
     program_header
 }
 
-fn create_elf_header(number_of_sections: u32) -> Vec<u8> {
+fn create_elf_header(number_of_program_headers: u32, number_of_sections: u32) -> Vec<u8> {
+    const END_ELF_HEADER: u32 = 0x34;
+    const PROGRAM_HEADER_SIZE: u32 = 32;
     let mut header: Vec<u8> = vec![];
 
     // Magic number
@@ -417,10 +464,11 @@ fn create_elf_header(number_of_sections: u32) -> Vec<u8> {
     header.extend_from_slice(&VIRTUAL_ENTRY_POINT.to_le_bytes());
 
     // Start of program header table (immediately after this header)
-    header.extend_from_slice(&(0x34 as u32).to_le_bytes());
+    header.extend_from_slice(&END_ELF_HEADER.to_le_bytes());
 
     // e_shoff: Start of section header table
-    header.extend_from_slice(&(0x54 as u32).to_le_bytes());
+    let program_header_table_size: u32 = number_of_program_headers * PROGRAM_HEADER_SIZE;
+    header.extend_from_slice(&(END_ELF_HEADER + program_header_table_size).to_le_bytes());
 
     // eflags
     header.append(&mut vec![0x00; 4]);
@@ -429,10 +477,10 @@ fn create_elf_header(number_of_sections: u32) -> Vec<u8> {
     header.append(&mut vec![52, 0x00]);
 
     // e_phentsize: size of a program header table entry
-    header.append(&mut vec![32, 0x00]);
+    header.append(&mut vec![PROGRAM_HEADER_SIZE as u8, 0x00]);
 
     // e_phnum: number of entries in program header table
-    header.append(&mut vec![0x01, 0x00]);
+    header.append(&mut vec![number_of_program_headers as u8, 0x00]);
 
     // e_shentsize: size of a section header table entry
     header.append(&mut vec![40, 0x00]);
@@ -452,7 +500,7 @@ mod test_elf {
 
     #[test]
     fn test_elf_header_length() {
-        assert_eq!(create_elf_header(1).len(), 52);
+        assert_eq!(create_elf_header(1, 1).len(), 52);
     }
 
     #[test]
@@ -462,14 +510,14 @@ mod test_elf {
         const ENTRIES: usize = 3;
 
         assert_eq!(
-            create_section_header(0, vec![], vec![], 0).len(),
+            create_section_header(0, &vec![], &vec![], 0).len(),
             BYTES_PER_FIELD * FIELDS_PER_ENTRY * ENTRIES
         );
     }
 
     #[test]
     fn test_program_header_length() {
-        assert_eq!(create_program_header(0).len(), 8 * 4);
+        assert_eq!(create_program_header(0, &vec![]).len(), 8 * 4);
     }
 }
 
@@ -479,11 +527,18 @@ pub fn run(config: Config) -> std::io::Result<()> {
     let mut data_sections = process(&config.filename).unwrap();
 
     // + 2 for string table and null sentinel
-    let elf_header = create_elf_header(data_sections.len() as u32 + 2);
-    let program = data_sections.remove(CODE_SECTION_NAME).unwrap();
-    let program_header = create_program_header(program.len() as u32);
+    let elf_header = create_elf_header(data_sections.len() as u32, data_sections.len() as u32 + 2);
+    let total_sections = data_sections.len();
+    let program = data_sections.remove(total_sections - 1).bytes;
 
-    let mut string_table = create_string_table(data_sections.keys().collect());
+    let data_section_sizes = data_sections
+        .iter()
+        .map(|section| section.bytes.len() as u32)
+        .collect();
+    let program_header = create_program_header(program.len() as u32, &data_section_sizes);
+
+    let data_section_names = data_sections.iter().map(|section| &section.name).collect();
+    let mut string_table = create_string_table(&data_section_names);
 
     // add str name for code and strtab at end of table
     string_table.extend(CODE_SECTION_NAME.bytes());
@@ -491,11 +546,10 @@ pub fn run(config: Config) -> std::io::Result<()> {
     string_table.extend(STRTAB_SECTION_NAME.bytes());
     string_table.push(0x00);
 
-    let data_section_sizes = data_sections.iter().map(|(_, v)| v.len() as u32).collect();
     let section_header = create_section_header(
         program.len() as u32,
-        data_section_sizes,
-        data_sections.keys().collect(),
+        &data_section_sizes,
+        &data_section_names,
         string_table.len() as u32,
     );
     let mut file = fs::File::create("a.out")?;
@@ -516,30 +570,25 @@ pub fn run(config: Config) -> std::io::Result<()> {
     file.write_all(&padding)?;
     file.write_all(&string_table)?;
 
-    // insert data sections
-    // DATA_SECTION_START
     let padding = vec![
         0;
-        DATA_SECTION_START as usize
+        DATA_SECTION_PHYSICAL_START as usize
             - STRTABLE_PHYSICAL_ENTRY_POINT as usize
             - string_table.len()
     ];
     file.write_all(&padding)?;
-    for (_, data) in data_sections.iter() {
+
+    // insert data sections
+    // DATA_SECTION_PHYSICAL_START
+    for section in data_sections.iter() {
+        let data = &section.bytes;
         file.write_all(&data)?;
+
+        // pad current data section
+        let padding = vec![0; PAGE_SIZE as usize - (data.len() % PAGE_SIZE as usize)];
+        file.write_all(&padding)?;
     }
 
-    // pad 4KB page
-    let padding = vec![
-        0;
-        PHYSICAL_ENTRY_POINT as usize
-            - DATA_SECTION_START as usize
-            - data_sections
-                .iter()
-                .map(|(_, bytes)| bytes.len())
-                .sum::<usize>()
-    ];
-    file.write_all(&padding)?;
     file.write_all(&program)?;
 
     Ok(())
