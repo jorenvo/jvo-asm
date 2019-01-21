@@ -143,9 +143,13 @@ impl<'a> Instruction for InstructionMove<'a> {
                     .into_iter()
                     .collect::<HashSet<_>>(),
                 vec![TokenType::Move].into_iter().collect::<HashSet<_>>(),
-                vec![TokenType::Value, TokenType::Register, TokenType::LabelReference]
-                    .into_iter()
-                    .collect::<HashSet<_>>(),
+                vec![
+                    TokenType::Value,
+                    TokenType::Register,
+                    TokenType::LabelReference,
+                ]
+                .into_iter()
+                .collect::<HashSet<_>>(),
             ],
             vec![&self.register, &self.operation, &self.operand],
         )
@@ -211,7 +215,9 @@ impl<'a> Instruction for InstructionAdd<'a> {
                     .into_iter()
                     .collect::<HashSet<_>>(),
                 vec![TokenType::Add].into_iter().collect::<HashSet<_>>(),
-                vec![TokenType::Value].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Value, TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
             ],
             vec![&self.register, &self.operation, &self.operand],
         )
@@ -219,17 +225,36 @@ impl<'a> Instruction for InstructionAdd<'a> {
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
-        let value = self.operand.value.parse::<u32>()?.to_le_bytes();
-        let modrm = self.calc_modrm(0b11, 0, self.get_reg_value(&self.register).unwrap());
 
-        Ok(vec![
-            IntermediateCode::Byte(0x81), // 32 bit adds
-            IntermediateCode::Byte(modrm),
-            IntermediateCode::Byte(value[0]),
-            IntermediateCode::Byte(value[1]),
-            IntermediateCode::Byte(value[2]),
-            IntermediateCode::Byte(value[3]),
-        ])
+        // p603
+        match self.operand.t {
+            Some(TokenType::Value) => {
+                let value = self.operand.value.parse::<u32>()?.to_le_bytes();
+                let modrm = self.calc_modrm(0b11, 0, self.get_reg_value(&self.register).unwrap());
+
+                Ok(vec![
+                    IntermediateCode::Byte(0x81), // 32 bit adds
+                    IntermediateCode::Byte(modrm),
+                    IntermediateCode::Byte(value[0]),
+                    IntermediateCode::Byte(value[1]),
+                    IntermediateCode::Byte(value[2]),
+                    IntermediateCode::Byte(value[3]),
+                ])
+            }
+            // TokenType::Register
+            _ => {
+                let modrm = self.calc_modrm(
+                    0b11,
+                    self.get_reg_value(&self.operand).unwrap(),
+                    self.get_reg_value(&self.register).unwrap(),
+                );
+
+                Ok(vec![
+                    IntermediateCode::Byte(0x01),
+                    IntermediateCode::Byte(modrm),
+                ])
+            }
+        }
     }
 }
 
@@ -731,6 +756,33 @@ mod test_instructions {
     }
 
     #[test]
+    fn test_add_register1() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "🔴".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Add),
+            value: "⬆".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Register),
+            value: "⚫".to_string(),
+        };
+        let instruction = InstructionAdd {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[IntermediateCode::Byte(0x01), IntermediateCode::Byte(0xd3),],
+            &bytes
+        ));
+    }
+
+    #[test]
     fn test_jump() {
         let operation = Token {
             t: Some(TokenType::Jump),
@@ -1087,7 +1139,7 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
                         register: &tokens[2],
                     }))
                 }
-            },
+            }
             _ => None,
         };
 
