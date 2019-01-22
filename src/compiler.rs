@@ -235,9 +235,10 @@ impl<'a> Instruction for InstructionMoveModRM<'a> {
         );
 
         // p 1161
-        Ok(vec![IntermediateCode::Byte(0x8b),
-                IntermediateCode::Byte(modrm),
-                IntermediateCode::Byte(self.offset.value.parse::<i8>()? as u8), // TODO support 32 bit offsets
+        Ok(vec![
+            IntermediateCode::Byte(0x8b),
+            IntermediateCode::Byte(modrm),
+            IntermediateCode::Byte(self.offset.value.parse::<i8>()? as u8), // TODO support 32 bit offsets
         ])
     }
 }
@@ -466,10 +467,10 @@ impl<'a> Instruction for InstructionCompare<'a> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Compare].into_iter().collect::<HashSet<_>>(),
-                vec![TokenType::Register]
+                vec![TokenType::Register, TokenType::Value]
                     .into_iter()
                     .collect::<HashSet<_>>(),
-                vec![TokenType::Register]
+                vec![TokenType::Register, TokenType::Value]
                     .into_iter()
                     .collect::<HashSet<_>>(),
             ],
@@ -489,17 +490,33 @@ impl<'a> Instruction for InstructionCompare<'a> {
         // In a conventional assembly language with AT&T syntax this
         // would make jge jump, because there the second argument is
         // compared to the first.
-        let opcode = 0x39;
-        let modrm = self.calc_modrm(
-            0b11,
-            self.get_reg_value(&self.right_operand).unwrap(),
-            self.get_reg_value(&self.left_operand).unwrap(),
-        );
+        match self.right_operand.t {
+            Some(TokenType::Register) => {
+                let opcode = 0x39;
+                let modrm = self.calc_modrm(
+                    0b11,
+                    self.get_reg_value(&self.right_operand).unwrap(),
+                    self.get_reg_value(&self.left_operand).unwrap(),
+                );
 
-        Ok(vec![
-            IntermediateCode::Byte(opcode),
-            IntermediateCode::Byte(modrm),
-        ])
+                Ok(vec![
+                    IntermediateCode::Byte(opcode),
+                    IntermediateCode::Byte(modrm),
+                ])
+            }
+            // Some(TokenType::Value)
+            _ => {
+                let opcode = 0x83;
+                let modrm =
+                    self.calc_modrm(0b11, 0x07, self.get_reg_value(&self.left_operand).unwrap());
+
+                Ok(vec![
+                    IntermediateCode::Byte(opcode),
+                    IntermediateCode::Byte(modrm),
+                    IntermediateCode::Byte(self.right_operand.value.parse::<i8>()? as u8),  // TODO support 32 bit
+                ])
+            }
+        }
     }
 }
 
@@ -989,7 +1006,7 @@ mod test_instructions {
     }
 
     #[test]
-    fn test_compare1() {
+    fn test_compare_register() {
         let operation = Token {
             t: Some(TokenType::Compare),
             value: "⚖".to_string(),
@@ -1011,6 +1028,37 @@ mod test_instructions {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[IntermediateCode::Byte(0x39), IntermediateCode::Byte(0xc3)],
+            &bytes
+        ));
+    }
+
+    #[test]
+    fn test_compare_immediate() {
+        let operation = Token {
+            t: Some(TokenType::Compare),
+            value: "⚖".to_string(),
+        };
+        let left_operand = Token {
+            t: Some(TokenType::Register),
+            value: "⚪".to_string(),
+        };
+        let right_operand = Token {
+            t: Some(TokenType::Value),
+            value: "5".to_string(),
+        };
+        let instruction = InstructionCompare {
+            operation: &operation,
+            left_operand: &left_operand,
+            right_operand: &right_operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0x83),
+                IntermediateCode::Byte(0xf8),
+                IntermediateCode::Byte(0x05),
+            ],
             &bytes
         ));
     }
