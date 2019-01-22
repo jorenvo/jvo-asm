@@ -1,0 +1,23 @@
+🖊LINUX_SYSCALL $128
+📗numbers 3, 67, 34, 222, 45, 1, 75, 54, 34, 44, 33, 22, 11, 66, 0
+
+# 🔵 is used as an index for numbers
+🔵 ⬅ numbers
+
+# 🔴 holds the current maximum
+🔴 ⬅ $0~🔵
+
+📪loop:
+⚪ ⬅ $0~🔵
+🔵 ⬆ $4
+
+⚖ ⚪, $0
+🦘= ✉exit
+⚖ ⚪, 🔴
+🦘≤ ✉loop
+🔴 ⬅ ⚪
+🦘 ✉loop
+
+📪exit:
+⚪ ⬅ $1
+❗ LINUX_SYSCALL
