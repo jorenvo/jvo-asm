@@ -109,7 +109,7 @@ fn process(filename: &str) -> Result<Vec<DataSection>, Box<error::Error>> {
                 };
                 let section_name = &tokens[0].value;
                 constants.insert(section_name.clone(), virtual_address);
-                data_section_size += tokens[1..].len();
+                data_section_size += PAGE_SIZE as usize; // TODO data sections are assumed to be 4KB
 
                 let mut section_data = vec![];
                 for token in &tokens[1..] {
