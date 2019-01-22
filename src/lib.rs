@@ -29,7 +29,7 @@ const CODE_SECTION_NAME: &str = ".code";
 const STRTAB_SECTION_NAME: &str = ".shstrtab";
 
 const DATA_SECTION_PHYSICAL_START: u32 = 0x1000;
-const PHYSICAL_ENTRY_POINT: u32 = 0x2000;
+const PHYSICAL_ENTRY_POINT: u32 = 0x3000;
 const STRTABLE_PHYSICAL_ENTRY_POINT: u32 = 0x400;
 
 const VIRTUAL_ENTRY_POINT: u32 = 0x08049000;
@@ -310,8 +310,9 @@ fn create_section_header(
             0x00,
         ));
 
-        section_start += size;
-        virtual_address += size;
+        // TODO program sizes are assumed to be 4KB
+        section_start += PAGE_SIZE;
+        virtual_address += PAGE_SIZE;
         strtab_index += data_section_names[index].len() as u32 + 1;
     }
 

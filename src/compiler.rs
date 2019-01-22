@@ -243,7 +243,7 @@ impl<'a> Instruction for InstructionAdd<'a> {
             }
             // TokenType::Register
             _ => {
-                let modrm = self.calc_modrm(
+               let modrm = self.calc_modrm(
                     0b11,
                     self.get_reg_value(&self.operand).unwrap(),
                     self.get_reg_value(&self.register).unwrap(),
