@@ -49,5 +49,6 @@ compile_and_compare_return () {
 cargo build
 compile_and_compare_stdout 'examples/print.jas' 'abc'
 compile_and_compare_return 'examples/base_ptr_addressing.jas' '4'
+compile_and_compare_return 'examples/multiple_data_sections.jas' '6'
 
 exit $FAILED

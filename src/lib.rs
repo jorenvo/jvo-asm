@@ -29,12 +29,8 @@ const CODE_SECTION_NAME: &str = ".code";
 const STRTAB_SECTION_NAME: &str = ".shstrtab";
 
 const DATA_SECTION_PHYSICAL_START: u32 = 0x1000;
-const PHYSICAL_ENTRY_POINT: u32 = 0x3000;
 const STRTABLE_PHYSICAL_ENTRY_POINT: u32 = 0x400;
-
-const VIRTUAL_ENTRY_POINT: u32 = 0x08049000;
-const DATA_SECTION_VIRTUAL_START: u32 =
-    VIRTUAL_ENTRY_POINT - PHYSICAL_ENTRY_POINT - DATA_SECTION_PHYSICAL_START;
+const DATA_SECTION_VIRTUAL_START: u32 = 0x08049000;
 
 const PAGE_SIZE: u32 = 0x1000;
 
@@ -288,21 +284,15 @@ fn create_section_header(
         0x00, SHT_NULL, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ));
 
-    let mut virtual_address = DATA_SECTION_VIRTUAL_START;
-    let mut section_start = DATA_SECTION_PHYSICAL_START;
+    let mut next_section_virtual_start = DATA_SECTION_VIRTUAL_START;
+    let mut next_section_physical_start = DATA_SECTION_PHYSICAL_START;
     for (index, size) in data_section_sizes.iter().enumerate() {
-        if section_start >= PHYSICAL_ENTRY_POINT {
-            // TODO: the physical entry point could be incremented by
-            // 4 KiB here instead of panicking.
-            panic!("Data section too big.");
-        }
-
         section_header.append(&mut create_section_header_entry(
             strtab_index,
             SHT_PROGBITS,
             SHF_WRITE | SHF_ALLOC,
-            virtual_address,
-            section_start,
+            next_section_virtual_start,
+            next_section_physical_start,
             *size,
             0x00,
             0x00,
@@ -311,8 +301,8 @@ fn create_section_header(
         ));
 
         // TODO program sizes are assumed to be 4KB
-        section_start += PAGE_SIZE;
-        virtual_address += PAGE_SIZE;
+        next_section_physical_start += PAGE_SIZE;
+        next_section_virtual_start += PAGE_SIZE;
         strtab_index += data_section_names[index].len() as u32 + 1;
     }
 
@@ -321,8 +311,8 @@ fn create_section_header(
         strtab_index,
         SHT_PROGBITS,
         SHF_ALLOC | SHF_EXECINSTR,
-        VIRTUAL_ENTRY_POINT,
-        PHYSICAL_ENTRY_POINT,
+        next_section_virtual_start,
+        next_section_physical_start,
         program_size,
         0x00,
         0x00,
@@ -402,8 +392,8 @@ fn create_program_header(program_size: u32, data_section_sizes: &Vec<u32>) -> Ve
     const PF_X_R: u32 = 1 | (1 << 2);
     let mut program_header = create_program_header_entry(
         program_size,
-        PHYSICAL_ENTRY_POINT,
-        VIRTUAL_ENTRY_POINT,
+        DATA_SECTION_PHYSICAL_START + PAGE_SIZE * data_section_sizes.len() as u32, // TODO this assumes data sections are 4KB
+        DATA_SECTION_VIRTUAL_START + PAGE_SIZE * data_section_sizes.len() as u32, // TODO this assumes data sections are 4KB
         PF_X_R,
     );
 
@@ -462,7 +452,12 @@ fn create_elf_header(number_of_program_headers: u32, number_of_sections: u32) ->
     header.extend_from_slice(&(1 as u32).to_le_bytes());
 
     // e_entry
-    header.extend_from_slice(&VIRTUAL_ENTRY_POINT.to_le_bytes());
+    // TODO this assumes 4 KB data sections
+    // -3 because string table appears in the first page and null delimiter
+    // and code don't offset the virtual entry point
+    header.extend_from_slice(
+        &(DATA_SECTION_VIRTUAL_START + (number_of_sections - 3) * PAGE_SIZE).to_le_bytes(),
+    );
 
     // Start of program header table (immediately after this header)
     header.extend_from_slice(&END_ELF_HEADER.to_le_bytes());
@@ -501,7 +496,7 @@ mod test_elf {
 
     #[test]
     fn test_elf_header_length() {
-        assert_eq!(create_elf_header(1, 1).len(), 52);
+        assert_eq!(create_elf_header(1, 3).len(), 52);
     }
 
     #[test]
@@ -588,11 +583,6 @@ pub fn run(config: Config) -> std::io::Result<()> {
         // pad current data section
         let padding = vec![0; PAGE_SIZE as usize - (data.len() % PAGE_SIZE as usize)];
         file.write_all(&padding)?;
-    }
-
-    // TODO fix this when PHYSICAL_ENTRY_POINT is dynamic
-    if data_sections.is_empty() {
-        file.write_all(&vec![0; PAGE_SIZE as usize])?;
     }
 
     file.write_all(&program)?;
