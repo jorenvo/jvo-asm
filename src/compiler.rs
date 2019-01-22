@@ -201,6 +201,47 @@ impl<'a> Instruction for InstructionMove<'a> {
     }
 }
 
+struct InstructionMoveModRM<'a> {
+    register: &'a Token,
+    operation: &'a Token,
+    offset: &'a Token,
+    operand: &'a Token,
+}
+
+impl<'a> Instruction for InstructionMoveModRM<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        self.validate_tokens(
+            vec![
+                vec![TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+                vec![TokenType::Move].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Value].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+            ],
+            vec![&self.register, &self.operation, &self.offset, &self.operand],
+        )
+    }
+
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+        self.validate()?;
+
+        let modrm = self.calc_modrm(
+            0b01,
+            self.get_reg_value(self.register).unwrap(),
+            self.get_reg_value(self.operand).unwrap(),
+        );
+
+        // p 1161
+        Ok(vec![IntermediateCode::Byte(0x8b),
+                IntermediateCode::Byte(modrm),
+                IntermediateCode::Byte(self.offset.value.parse::<i8>()? as u8), // TODO support 32 bit offsets
+        ])
+    }
+}
+
 struct InstructionAdd<'a> {
     register: &'a Token,
     operation: &'a Token,
@@ -243,7 +284,7 @@ impl<'a> Instruction for InstructionAdd<'a> {
             }
             // TokenType::Register
             _ => {
-               let modrm = self.calc_modrm(
+                let modrm = self.calc_modrm(
                     0b11,
                     self.get_reg_value(&self.operand).unwrap(),
                     self.get_reg_value(&self.register).unwrap(),
@@ -382,7 +423,7 @@ impl<'a> Instruction for InstructionPushModRM<'a> {
         Ok(vec![
             IntermediateCode::Byte(opcode),
             IntermediateCode::Byte(modrm),
-            IntermediateCode::Byte(self.offset.value.parse::<i8>()? as u8),
+            IntermediateCode::Byte(self.offset.value.parse::<i8>()? as u8), // TODO support 32 bit offsets
         ])
     }
 }
@@ -683,6 +724,42 @@ mod test_instructions {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[IntermediateCode::Byte(0x89), IntermediateCode::Byte(0xe1),],
+            &bytes
+        ));
+    }
+
+    #[test]
+    fn test_move_modrm1() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "🔴".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Move),
+            value: "⬅".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Register),
+            value: "⬇".to_string(),
+        };
+        let offset = Token {
+            t: Some(TokenType::Value),
+            value: "8".to_string(),
+        };
+        let instruction = InstructionMoveModRM {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+            offset: &offset,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0x8b),
+                IntermediateCode::Byte(0x5d),
+                IntermediateCode::Byte(0x08)
+            ],
             &bytes
         ));
     }
@@ -1090,11 +1167,6 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
 
     for token in tokens.iter() {
         operation = match token.t {
-            Some(TokenType::Move) => Some(Box::new(InstructionMove {
-                register: &tokens[0],
-                operation: &tokens[1],
-                operand: &tokens[2],
-            })),
             Some(TokenType::Interrupt) => Some(Box::new(InstructionInterrupt {
                 operation: &tokens[0],
                 operand: &tokens[1],
@@ -1137,6 +1209,22 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
                         operation: &tokens[0],
                         offset: &tokens[1],
                         register: &tokens[2],
+                    }))
+                }
+            }
+            Some(TokenType::Move) => {
+                if tokens.len() == 3 {
+                    Some(Box::new(InstructionMove {
+                        register: &tokens[0],
+                        operation: &tokens[1],
+                        operand: &tokens[2],
+                    }))
+                } else {
+                    Some(Box::new(InstructionMoveModRM {
+                        register: &tokens[0],
+                        operation: &tokens[1],
+                        offset: &tokens[2],
+                        operand: &tokens[3],
                     }))
                 }
             }
