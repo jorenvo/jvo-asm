@@ -425,6 +425,29 @@ impl<'a> Instruction for InstructionCall<'a> {
     }
 }
 
+struct InstructionReturn<'a> {
+    operation: &'a Token,
+}
+
+impl<'a> Instruction for InstructionReturn<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        self.validate_tokens(
+            vec![
+                vec![TokenType::Return].into_iter().collect::<HashSet<_>>(),
+            ],
+            vec![&self.operation],
+        )
+    }
+
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+        self.validate()?;
+        // p 1675
+        Ok(vec![
+            IntermediateCode::Byte(0xc3),
+        ])
+    }
+}
+
 struct InstructionInterrupt<'a> {
     operation: &'a Token,
     operand: &'a Token,
@@ -1177,6 +1200,20 @@ mod test_instructions {
             ],
             &bytes
         ));
+    }
+
+    #[test]
+    fn test_ret() {
+        let operation = Token {
+            t: Some(TokenType::Return),
+            value: "🏠".to_string(),
+        };
+        let instruction = InstructionReturn {
+            operation: &operation,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(&[IntermediateCode::Byte(0xc3),], &bytes));
     }
 
     #[test]
