@@ -41,7 +41,7 @@ trait Instruction {
     fn validate(&self) -> Result<(), Box<error::Error>>;
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>>;
 
-    fn format_tokens(&self, tokens: &Vec<&Token>) -> String {
+    fn format_tokens(&self, tokens: &[&Token]) -> String {
         tokens.iter().fold("".to_string(), |acc, t| {
             acc.to_owned() + &format!(" {}", t.value)
         })
@@ -513,7 +513,7 @@ impl<'a> Instruction for InstructionCompare<'a> {
                 Ok(vec![
                     IntermediateCode::Byte(opcode),
                     IntermediateCode::Byte(modrm),
-                    IntermediateCode::Byte(self.right_operand.value.parse::<i8>()? as u8),  // TODO support 32 bit
+                    IntermediateCode::Byte(self.right_operand.value.parse::<i8>()? as u8), // TODO support 32 bit
                 ])
             }
         }

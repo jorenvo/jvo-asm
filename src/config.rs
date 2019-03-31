@@ -19,7 +19,7 @@ impl Config {
     pub fn new(mut args: Vec<String>) -> Result<Config, String> {
         let program_name = args.remove(0);
 
-        if args.len() < 1 {
+        if args.is_empty() {
             Err(format!("Usage: {} program.jas", program_name))
         } else {
             Ok(Config {

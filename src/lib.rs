@@ -30,7 +30,7 @@ const STRTAB_SECTION_NAME: &str = ".shstrtab";
 
 const DATA_SECTION_PHYSICAL_START: u32 = 0x1000;
 const STRTABLE_PHYSICAL_ENTRY_POINT: u32 = 0x400;
-const DATA_SECTION_VIRTUAL_START: u32 = 0x08049000;
+const DATA_SECTION_VIRTUAL_START: u32 = 0x0804_9000;
 
 const PAGE_SIZE: u32 = 0x1000;
 
@@ -145,12 +145,10 @@ fn process(filename: &str) -> Result<Vec<DataSection>, Box<error::Error>> {
         let mut displacements = vec![];
         for intermediate in intermediate_instruction {
             padded_intermediate_instruction.push(intermediate.clone());
-            match intermediate {
-                IntermediateCode::Displacement32(_) => {
-                    displacements.push(padded_intermediate_instruction.len() - 1);
-                    padded_intermediate_instruction.append(&mut vec![IntermediateCode::Padding; 3]);
-                }
-                _ => {}
+
+            if let IntermediateCode::Displacement32(_) = intermediate {
+                displacements.push(padded_intermediate_instruction.len() - 1);
+                padded_intermediate_instruction.append(&mut vec![IntermediateCode::Padding; 3]);
             }
         }
 
@@ -173,7 +171,7 @@ fn process(filename: &str) -> Result<Vec<DataSection>, Box<error::Error>> {
             IntermediateCode::Displacement32(s) => match labels.get(s) {
                 Some(target_i) => {
                     let instruction_end =
-                        i as i32 + *intermediate_index_instruction_offset.get(&i).unwrap() as i32;
+                        i as i32 + intermediate_index_instruction_offset[&i] as i32;
                     let displacement = *target_i as i32 - instruction_end;
                     let mut v = Vec::new();
                     v.extend_from_slice(&displacement.to_le_bytes());
@@ -265,8 +263,8 @@ fn create_section_header_entry(
 
 fn create_section_header(
     program_size: u32,
-    data_section_sizes: &Vec<u32>,
-    data_section_names: &Vec<&String>,
+    data_section_sizes: &[u32],
+    data_section_names: &[&String],
     strtable_size: u32,
 ) -> Vec<u8> {
     const SHT_NULL: u32 = 0x00;

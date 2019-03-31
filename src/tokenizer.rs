@@ -87,7 +87,7 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
             token.t = Some(TokenType::Constant);
             token.value.remove(0);
         }
-        _ if word.starts_with("📪") && word.ends_with(":") => {
+        _ if word.starts_with("📪") && word.ends_with(':') => {
             token.t = Some(TokenType::Label);
 
             let to_trim: &[_] = &[':', '📪'];
@@ -101,7 +101,7 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
             token.t = Some(TokenType::LabelReference);
             token.value.remove(0);
         }
-        _ if word.starts_with("$") => {
+        _ if word.starts_with('$') => {
             if word[1..].parse::<u32>().is_err() {
                 return Err(Box::new(TokenizeError {
                     msg: format!("Invalid value: {}. Should be a number.", word),
@@ -133,7 +133,7 @@ pub fn tokenize(line: &str) -> Result<Vec<Token>, Box<error::Error>> {
             continue;
         }
 
-        if word.starts_with("#") {
+        if word.starts_with('#') {
             break;
         }
 
