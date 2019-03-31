@@ -14,8 +14,6 @@
 
 // Notes:
 // Instruction format (p 505)
-
-#![allow(unused_variables, dead_code)]
 use common::*;
 use std::collections::HashSet;
 use std::{error, fmt};
