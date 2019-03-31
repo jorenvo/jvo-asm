@@ -300,6 +300,51 @@ impl<'a> Instruction for InstructionAdd<'a> {
     }
 }
 
+struct InstructionMultiply<'a> {
+    register: &'a Token,
+    operation: &'a Token,
+    operand: &'a Token,
+}
+
+impl<'a> Instruction for InstructionMultiply<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        self.validate_tokens(
+            vec![
+                vec![TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+                vec![TokenType::Multiply]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+                vec![TokenType::Value].into_iter().collect::<HashSet<_>>(),
+            ],
+            vec![&self.register, &self.operation, &self.operand],
+        )
+    }
+
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+        self.validate()?;
+
+        // p1017
+        let opcode = 0x69;
+        let modrm_destination = self.calc_modrm(
+            0b11,
+            self.get_reg_value(&self.register).unwrap(),
+            self.get_reg_value(&self.register).unwrap(),
+        );
+        let value = self.operand.value.parse::<u32>()?.to_le_bytes();
+
+        Ok(vec![
+            IntermediateCode::Byte(opcode),
+            IntermediateCode::Byte(modrm_destination),
+            IntermediateCode::Byte(value[0]),
+            IntermediateCode::Byte(value[1]),
+            IntermediateCode::Byte(value[2]),
+            IntermediateCode::Byte(value[3]),
+        ])
+    }
+}
+
 struct InstructionJump<'a> {
     operation: &'a Token,
     operand: &'a Token,
@@ -875,6 +920,74 @@ mod test_instructions {
             &[IntermediateCode::Byte(0x01), IntermediateCode::Byte(0xd3),],
             &bytes
         ));
+    }
+
+    #[test]
+    fn test_multiply_immediate1() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "🔴".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Multiply),
+            value: "✖".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "0".to_string(),
+        };
+        let instruction = InstructionMultiply {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0x69),
+                IntermediateCode::Byte(0xdb),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+            ],
+            &bytes
+        ))
+    }
+
+    #[test]
+    fn test_multiply_immediate2() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "🔴".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Multiply),
+            value: "✖".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "3223133".to_string(),
+        };
+        let instruction = InstructionMultiply {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0x69),
+                IntermediateCode::Byte(0xdb),
+                IntermediateCode::Byte(0x5d),
+                IntermediateCode::Byte(0x2e),
+                IntermediateCode::Byte(0x31),
+                IntermediateCode::Byte(0x00),
+            ],
+            &bytes
+        ))
     }
 
     #[test]
