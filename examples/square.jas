@@ -1,0 +1,21 @@
+🖊LINUX_SYSCALL $128
+🖊ST_ARG $8
+
+📥 $7                # argument for square
+📞 ✉square
+
+📪exit:
+🔴 ⬅ ⚪              # set return value
+⚪ ⬅ $1              # set exit syscall code
+❗ LINUX_SYSCALL     # interrupt
+
+📪square:
+📥 ⬇                 # store base pointer
+⬇ ⬅ ◀                # set base pointer to current stack
+⚪ ⬅ ST_ARG~⬇        # get the argument of function
+
+⚪ ✖ ⚪              # calculate the square
+
+◀ ⬅ ⬇                # restore the stack pointer
+📤 ⬇                 # restore the base pointer
+🏠                   # return
