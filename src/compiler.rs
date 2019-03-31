@@ -472,17 +472,19 @@ impl<'a> Instruction for InstructionInterrupt<'a> {
     }
 }
 
-struct InstructionPushImmediate<'a> {
+struct InstructionPush<'a> {
     operation: &'a Token,
     operand: &'a Token,
 }
 
-impl<'a> Instruction for InstructionPushImmediate<'a> {
+impl<'a> Instruction for InstructionPush<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Push].into_iter().collect::<HashSet<_>>(),
-                vec![TokenType::Value].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Value, TokenType::Register]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
             ],
             vec![&self.operation, &self.operand],
         )
@@ -490,15 +492,27 @@ impl<'a> Instruction for InstructionPushImmediate<'a> {
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
-        let value = self.operand.value.parse::<u32>()?.to_le_bytes();
+
         // p 1633
-        Ok(vec![
-            IntermediateCode::Byte(0x68),
-            IntermediateCode::Byte(value[0]),
-            IntermediateCode::Byte(value[1]),
-            IntermediateCode::Byte(value[2]),
-            IntermediateCode::Byte(value[3]),
-        ])
+        match self.operand.t {
+            Some(TokenType::Value) => {
+                let value = self.operand.value.parse::<u32>()?.to_le_bytes();
+                Ok(vec![
+                    IntermediateCode::Byte(0x68),
+                    IntermediateCode::Byte(value[0]),
+                    IntermediateCode::Byte(value[1]),
+                    IntermediateCode::Byte(value[2]),
+                    IntermediateCode::Byte(value[3]),
+                ])
+            }
+            // TokenType::Register
+            _ => {
+                let opcode = 0x50;
+                Ok(vec![IntermediateCode::Byte(
+                    opcode + self.get_reg_value(&self.operand).unwrap(),
+                )])
+            }
+        }
     }
 }
 
@@ -1222,7 +1236,7 @@ mod test_instructions {
             t: Some(TokenType::Value),
             value: "174285409".to_string(),
         };
-        let instruction = InstructionPushImmediate {
+        let instruction = InstructionPush {
             operation: &operation,
             operand: &operand,
         };
@@ -1238,6 +1252,25 @@ mod test_instructions {
             ],
             &bytes
         ));
+    }
+
+    #[test]
+    fn test_push_register() {
+        let operation = Token {
+            t: Some(TokenType::Push),
+            value: "📥".to_string(),
+        };
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⬇".to_string(),
+        };
+        let instruction = InstructionPush {
+            operation: &operation,
+            operand: &register,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(&[IntermediateCode::Byte(0x55),], &bytes));
     }
 
     #[test]
@@ -1437,7 +1470,7 @@ mod test_instructions {
             t: Some(TokenType::Value),
             value: "123".to_string(),
         };
-        let instruction = InstructionPushImmediate {
+        let instruction = InstructionPush {
             operation: &operation,
             operand: &operand,
         };
@@ -1545,7 +1578,7 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
             })),
             Some(TokenType::Push) => {
                 if tokens.len() == 2 {
-                    Some(Box::new(InstructionPushImmediate {
+                    Some(Box::new(InstructionPush {
                         operation: &tokens[0],
                         operand: &tokens[1],
                     }))
