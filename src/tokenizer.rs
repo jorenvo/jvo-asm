@@ -77,6 +77,9 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "🦘" => {
             token.t = Some(TokenType::Jump);
         }
+        "📞" => {
+            token.t = Some(TokenType::Call);
+        }
         "📥" => {
             token.t = Some(TokenType::Push);
         }
@@ -237,6 +240,15 @@ mod test_tokenize {
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].t, Some(TokenType::JumpIfNotEqual));
         assert_eq!(tokens[0].value, "🦘≠");
+        assert_eq!(tokens[1].t, Some(TokenType::Memory));
+        assert_eq!(tokens[1].value, "123");
+    }
+
+    #[test]
+    fn test_call() {
+        let tokens = tokenize("📞 123").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].t, Some(TokenType::Call));
         assert_eq!(tokens[1].t, Some(TokenType::Memory));
         assert_eq!(tokens[1].value, "123");
     }

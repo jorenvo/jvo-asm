@@ -336,6 +336,7 @@ impl<'a> Instruction for InstructionMultiply<'a> {
                     self.get_reg_value(&self.register).unwrap(),
                     self.get_reg_value(&self.register).unwrap(),
                 );
+                // TODO change to i32 when signed integer support is added
                 let value = self.operand.value.parse::<u32>()?.to_le_bytes();
 
                 Ok(vec![
@@ -390,6 +391,35 @@ impl<'a> Instruction for InstructionJump<'a> {
         // p 87 specifying an offset
         Ok(vec![
             IntermediateCode::Byte(0xe9),
+            IntermediateCode::Displacement32(self.operand.value.clone()),
+        ])
+    }
+}
+
+struct InstructionCall<'a> {
+    operation: &'a Token,
+    operand: &'a Token,
+}
+
+impl<'a> Instruction for InstructionCall<'a> {
+    fn validate(&self) -> Result<(), Box<error::Error>> {
+        self.validate_tokens(
+            vec![
+                vec![TokenType::Call].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::LabelReference]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+            ],
+            vec![&self.operation, &self.operand],
+        )
+    }
+
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+        self.validate()?;
+        // p 694
+        // p 87 specifying an offset
+        Ok(vec![
+            IntermediateCode::Byte(0xe8),
             IntermediateCode::Displacement32(self.operand.value.clone()),
         ])
     }
@@ -1118,6 +1148,31 @@ mod test_instructions {
             &[
                 IntermediateCode::Byte(0x0f),
                 IntermediateCode::Byte(0x84),
+                IntermediateCode::Displacement32("test_label".to_string())
+            ],
+            &bytes
+        ));
+    }
+
+    #[test]
+    fn test_call() {
+        let operation = Token {
+            t: Some(TokenType::Call),
+            value: "📞".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::LabelReference),
+            value: "test_label".to_string(),
+        };
+        let instruction = InstructionCall {
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0xe8),
                 IntermediateCode::Displacement32("test_label".to_string())
             ],
             &bytes

@@ -25,6 +25,7 @@ pub enum TokenType {
     JumpIfGreater,
     JumpIfGreaterEqual,
     Jump,
+    Call,
     Push,
     Pop,
     Value,
