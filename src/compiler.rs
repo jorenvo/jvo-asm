@@ -432,9 +432,7 @@ struct InstructionReturn<'a> {
 impl<'a> Instruction for InstructionReturn<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
-            vec![
-                vec![TokenType::Return].into_iter().collect::<HashSet<_>>(),
-            ],
+            vec![vec![TokenType::Return].into_iter().collect::<HashSet<_>>()],
             vec![&self.operation],
         )
     }
@@ -442,9 +440,7 @@ impl<'a> Instruction for InstructionReturn<'a> {
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
         self.validate()?;
         // p 1675
-        Ok(vec![
-            IntermediateCode::Byte(0xc3),
-        ])
+        Ok(vec![IntermediateCode::Byte(0xc3)])
     }
 }
 
@@ -1513,6 +1509,11 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
                 operation: &tokens[1],
                 operand: &tokens[2],
             })),
+            Some(TokenType::Multiply) => Some(Box::new(InstructionMultiply {
+                register: &tokens[0],
+                operation: &tokens[1],
+                operand: &tokens[2],
+            })),
             Some(TokenType::Jump) => Some(Box::new(InstructionJump {
                 operation: &tokens[0],
                 operand: &tokens[1],
@@ -1534,6 +1535,13 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
             | Some(TokenType::JumpIfGreaterEqual) => Some(Box::new(InstructionJumpIf {
                 operation: &tokens[0],
                 operand: &tokens[1],
+            })),
+            Some(TokenType::Call) => Some(Box::new(InstructionCall {
+                operation: &tokens[0],
+                operand: &tokens[1],
+            })),
+            Some(TokenType::Return) => Some(Box::new(InstructionReturn {
+                operation: &tokens[0],
             })),
             Some(TokenType::Push) => {
                 if tokens.len() == 2 {
