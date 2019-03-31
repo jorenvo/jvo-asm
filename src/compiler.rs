@@ -613,6 +613,7 @@ mod test_instructions {
     }
 
     fn vec_compare(va: &[IntermediateCode], vb: &[IntermediateCode]) -> bool {
+        println!("{:?}", vb);
         (va.len() == vb.len()) &&  // zip stops at the shortest
             va.iter()
             .zip(vb)
