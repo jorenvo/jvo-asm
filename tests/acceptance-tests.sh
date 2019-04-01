@@ -52,5 +52,6 @@ compile_and_compare_return 'examples/base_ptr_addressing.jas' '4'
 compile_and_compare_return 'examples/multiple_data_sections.jas' '6'
 compile_and_compare_return 'examples/find_max.jas' '222'
 compile_and_compare_return 'examples/square.jas' '49'
+compile_and_compare_return 'examples/factorial.jas' '120'
 
 exit $FAILED

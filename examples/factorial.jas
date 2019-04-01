@@ -1,0 +1,33 @@
+🖊LINUX_SYSCALL $128
+🖊ST_ARG $8
+
+📥 $5                # argument for factorial
+📞 ✉factorial
+
+◀ ⬆ $4               # get rid of the argument added to the stack
+🔴 ⬅ ⚪              # set return code
+
+⚪ ⬅ $1              # set exit syscall code
+❗ LINUX_SYSCALL     # interrupt
+
+📪factorial:
+📥 ⬇                 # save ebp
+⬇ ⬅ ◀                # set new ebp
+
+⚪ ⬅ ST_ARG~⬇        # retrieve argument to function
+
+⚖ ⚪, $1            # end if all multiplications are done
+🦘= ✉end_factorial
+
+⚪ ➖ $1             # decrement before multiplying again
+📥 ⚪                # add argument to stack for next call
+
+📞 ✉factorial       # call factorial recursively
+🔴 ⬅ ST_ARG~⬇        # load the original argument again
+
+⚪ ✖ 🔴              # multiply
+
+📪end_factorial:
+◀ ⬅ ⬇                # restore the stack pointer
+📤 ⬇                 # restore the base pointer
+🏠                   # return
