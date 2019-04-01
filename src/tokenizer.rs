@@ -41,7 +41,7 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "↩" => {
             token.t = Some(TokenType::Return);
         }
-        "⬆" => {
+        "➕" => {
             token.t = Some(TokenType::Add);
         }
         "➖" => {
@@ -197,7 +197,7 @@ mod test_tokenize {
 
     #[test]
     fn test_add() {
-        let tokens = tokenize("⚪ ⬆ $5").unwrap();
+        let tokens = tokenize("⚪ ➕ $5").unwrap();
         verify_add(&tokens);
     }
 
@@ -302,7 +302,7 @@ mod test_tokenize {
 
     #[test]
     fn test_whitespace3() {
-        let tokens = tokenize("⚪ 	⬆ $5").unwrap();
+        let tokens = tokenize("⚪ 	➕ $5").unwrap();
         //                        ^ TAB
         verify_add(&tokens);
     }

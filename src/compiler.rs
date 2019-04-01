@@ -930,7 +930,7 @@ mod test_instructions {
         };
         let operation = Token {
             t: Some(TokenType::Add),
-            value: "⬆".to_string(),
+            value: "➕".to_string(),
         };
         let operand = Token {
             t: Some(TokenType::Value),
@@ -964,7 +964,7 @@ mod test_instructions {
         };
         let operation = Token {
             t: Some(TokenType::Add),
-            value: "⬆".to_string(),
+            value: "➕".to_string(),
         };
         let operand = Token {
             t: Some(TokenType::Value),
@@ -1032,7 +1032,7 @@ mod test_instructions {
         };
         let operation = Token {
             t: Some(TokenType::Add),
-            value: "⬆".to_string(),
+            value: "➕".to_string(),
         };
         let operand = Token {
             t: Some(TokenType::Register),

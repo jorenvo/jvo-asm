@@ -4,7 +4,7 @@
 📥 $5                # argument for factorial
 📞 ✉factorial
 
-◀ ⬆ $4               # get rid of the argument added to the stack
+◀ ➕ $4               # get rid of the argument added to the stack
 🔴 ⬅ ⚪              # set return code
 
 ⚪ ⬅ $1              # set exit syscall code

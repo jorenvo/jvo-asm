@@ -6,7 +6,7 @@
 🔴 ⬅ my_constant
 ⚖ ⚪ 🔴
 🦘< ✉interrupt
-🔴 ⬆ $4
+🔴 ➕ $4
 🦘 ✉start
 📪interrupt:
 ❗ $128
