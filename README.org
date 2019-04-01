@@ -1,1 +1,38 @@
 * jvo-asm [[https://travis-ci.org/jorenvo/jvo-asm][file:https://travis-ci.com/jorenvo/jvo-asm.svg?branch=master]]
+This is a toy x86 assembler written from scratch. It was written to
+gain a better understanding of how machine code and executable files
+work.
+
+** Syntax
+This assembler makes extensive use of UTF-8 emojis, because why not?
+
+|----------------------+-----------+---------------|
+| *Symbol*             | *Example* | *Description* |
+|----------------------+-----------+---------------|
+| ↩                    |           |               |
+| ➕                   |           |               |
+| ➖                   |           |               |
+| ✖                    |           |               |
+| ⬅                    |           |               |
+| ❗                   |           |               |
+| ⚪, 🔴, 🔵, ⚫, ◀, ⬇ |           |               |
+| 🦘=                   |           |               |
+| 🦘≠                   |           |               |
+| 🦘<                   |           |               |
+| 🦘≤                   |           |               |
+| 🦘>                   |           |               |
+| 🦘≥                   |           |               |
+| 🦘                    |           |               |
+| 📞                   |           |               |
+| 📥                   |           |               |
+| 📤                   |           |               |
+| ⚖                    |           |               |
+| 🖊                    |           |               |
+| 📪 (ends with :)     |           |               |
+| 📗                   |           |               |
+| ✉                    |           |               |
+| $                    |           |               |
+| 123                  |           |               |
+| my_constant          |           |               |
+|----------------------+-----------+---------------|
+
