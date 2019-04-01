@@ -1288,7 +1288,7 @@ mod test_instructions {
     fn test_ret() {
         let operation = Token {
             t: Some(TokenType::Return),
-            value: "🏠".to_string(),
+            value: "↩".to_string(),
         };
         let instruction = InstructionReturn {
             operation: &operation,

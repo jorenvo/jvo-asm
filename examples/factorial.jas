@@ -30,4 +30,4 @@
 📪end_factorial:
 ◀ ⬅ ⬇                # restore the stack pointer
 📤 ⬇                 # restore the base pointer
-🏠                   # return
+↩                   # return

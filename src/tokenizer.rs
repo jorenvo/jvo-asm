@@ -83,9 +83,6 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "📞" => {
             token.t = Some(TokenType::Call);
         }
-        "🏠" => {
-            token.t = Some(TokenType::Return);
-        }
         "📥" => {
             token.t = Some(TokenType::Push);
         }
@@ -274,7 +271,7 @@ mod test_tokenize {
 
     #[test]
     fn test_return() {
-        let tokens = tokenize("🏠").unwrap();
+        let tokens = tokenize("↩").unwrap();
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].t, Some(TokenType::Return));
     }
