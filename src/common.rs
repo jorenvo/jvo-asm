@@ -17,6 +17,7 @@ use std::fmt;
 pub enum TokenType {
     Move,
     Add,
+    Subtract,
     Multiply,
     JumpIfEqual,
     JumpIfNotEqual,

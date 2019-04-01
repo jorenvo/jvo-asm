@@ -241,20 +241,22 @@ impl<'a> Instruction for InstructionMoveModRM<'a> {
     }
 }
 
-struct InstructionAdd<'a> {
+struct InstructionAddSubtract<'a> {
     register: &'a Token,
     operation: &'a Token,
     operand: &'a Token,
 }
 
-impl<'a> Instruction for InstructionAdd<'a> {
+impl<'a> Instruction for InstructionAddSubtract<'a> {
     fn validate(&self) -> Result<(), Box<error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Register]
                     .into_iter()
                     .collect::<HashSet<_>>(),
-                vec![TokenType::Add].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Add, TokenType::Subtract]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
                 vec![TokenType::Value, TokenType::Register]
                     .into_iter()
                     .collect::<HashSet<_>>(),
@@ -270,7 +272,13 @@ impl<'a> Instruction for InstructionAdd<'a> {
         match self.operand.t {
             Some(TokenType::Value) => {
                 let value = self.operand.value.parse::<u32>()?.to_le_bytes();
-                let modrm = self.calc_modrm(0b11, 0, self.get_reg_value(&self.register).unwrap());
+                let opcode = if let Some(TokenType::Add) = self.operation.t {
+                    0x0
+                } else {
+                    0x5
+                };
+                let modrm =
+                    self.calc_modrm(0b11, opcode, self.get_reg_value(&self.register).unwrap());
 
                 Ok(vec![
                     IntermediateCode::Byte(0x81), // 32 bit adds
@@ -283,6 +291,11 @@ impl<'a> Instruction for InstructionAdd<'a> {
             }
             // TokenType::Register
             _ => {
+                let opcode = if let Some(TokenType::Add) = self.operation.t {
+                    0x01
+                } else {
+                    0x29
+                };
                 let modrm = self.calc_modrm(
                     0b11,
                     self.get_reg_value(&self.operand).unwrap(),
@@ -290,7 +303,7 @@ impl<'a> Instruction for InstructionAdd<'a> {
                 );
 
                 Ok(vec![
-                    IntermediateCode::Byte(0x01),
+                    IntermediateCode::Byte(opcode),
                     IntermediateCode::Byte(modrm),
                 ])
             }
@@ -910,40 +923,6 @@ mod test_instructions {
     }
 
     #[test]
-    fn test_add_immediate1() {
-        let register = Token {
-            t: Some(TokenType::Register),
-            value: "⚫".to_string(),
-        };
-        let operation = Token {
-            t: Some(TokenType::Add),
-            value: "⬆".to_string(),
-        };
-        let operand = Token {
-            t: Some(TokenType::Value),
-            value: "7".to_string(),
-        };
-        let instruction = InstructionAdd {
-            register: &register,
-            operation: &operation,
-            operand: &operand,
-        };
-
-        let bytes = instruction.compile().unwrap();
-        assert!(vec_compare(
-            &[
-                IntermediateCode::Byte(0x81),
-                IntermediateCode::Byte(0b11000000 | instruction.get_reg_value(&register).unwrap()),
-                IntermediateCode::Byte(0x07),
-                IntermediateCode::Byte(0x00),
-                IntermediateCode::Byte(0x00),
-                IntermediateCode::Byte(0x00),
-            ],
-            &bytes
-        ));
-    }
-
-    #[test]
     fn test_add_immediate2() {
         let register = Token {
             t: Some(TokenType::Register),
@@ -957,7 +936,7 @@ mod test_instructions {
             t: Some(TokenType::Value),
             value: "4294967294".to_string(),
         };
-        let instruction = InstructionAdd {
+        let instruction = InstructionAddSubtract {
             register: &register,
             operation: &operation,
             operand: &operand,
@@ -978,6 +957,74 @@ mod test_instructions {
     }
 
     #[test]
+    fn test_add_immediate1() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⚫".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Add),
+            value: "⬆".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "7".to_string(),
+        };
+        let instruction = InstructionAddSubtract {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0x81),
+                IntermediateCode::Byte(0b11000000 | instruction.get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0x07),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+            ],
+            &bytes
+        ));
+    }
+
+    #[test]
+    fn test_sub_immediate1() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⚪".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Subtract),
+            value: "➖".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "7".to_string(),
+        };
+        let instruction = InstructionAddSubtract {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0x81),
+                IntermediateCode::Byte(0xe8),
+                IntermediateCode::Byte(0x07),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+            ],
+            &bytes
+        ));
+    }
+
+    #[test]
     fn test_add_register1() {
         let register = Token {
             t: Some(TokenType::Register),
@@ -991,7 +1038,7 @@ mod test_instructions {
             t: Some(TokenType::Register),
             value: "⚫".to_string(),
         };
-        let instruction = InstructionAdd {
+        let instruction = InstructionAddSubtract {
             register: &register,
             operation: &operation,
             operand: &operand,
@@ -1000,6 +1047,33 @@ mod test_instructions {
         let bytes = instruction.compile().unwrap();
         assert!(vec_compare(
             &[IntermediateCode::Byte(0x01), IntermediateCode::Byte(0xd3),],
+            &bytes
+        ));
+    }
+
+    #[test]
+    fn test_sub_register1() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⚪".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Subtract),
+            value: "➖".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Register),
+            value: "🔴".to_string(),
+        };
+        let instruction = InstructionAddSubtract {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[IntermediateCode::Byte(0x29), IntermediateCode::Byte(0xd8),],
             &bytes
         ));
     }
@@ -1535,11 +1609,13 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::E
                 operation: &tokens[0],
                 operand: &tokens[1],
             })),
-            Some(TokenType::Add) => Some(Box::new(InstructionAdd {
-                register: &tokens[0],
-                operation: &tokens[1],
-                operand: &tokens[2],
-            })),
+            Some(TokenType::Add) | Some(TokenType::Subtract) => {
+                Some(Box::new(InstructionAddSubtract {
+                    register: &tokens[0],
+                    operation: &tokens[1],
+                    operand: &tokens[2],
+                }))
+            }
             Some(TokenType::Multiply) => Some(Box::new(InstructionMultiply {
                 register: &tokens[0],
                 operation: &tokens[1],

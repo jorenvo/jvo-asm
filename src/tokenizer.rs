@@ -44,6 +44,9 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
         "⬆" => {
             token.t = Some(TokenType::Add);
         }
+        "➖" => {
+            token.t = Some(TokenType::Subtract);
+        }
         "✖" => {
             token.t = Some(TokenType::Multiply);
         }
@@ -196,6 +199,19 @@ mod test_tokenize {
     fn test_add() {
         let tokens = tokenize("⚪ ⬆ $5").unwrap();
         verify_add(&tokens);
+    }
+
+    #[test]
+    fn test_subtract() {
+        let tokens = tokenize("⚪ ➖ $5").unwrap();
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].t, Some(TokenType::Register));
+        assert_eq!(tokens[0].value, "⚪");
+
+        assert_eq!(tokens[1].t, Some(TokenType::Subtract));
+
+        assert_eq!(tokens[2].t, Some(TokenType::Value));
+        assert_eq!(tokens[2].value, "5");
     }
 
     #[test]
