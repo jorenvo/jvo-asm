@@ -2,37 +2,99 @@
 This is a toy x86 assembler written from scratch. It was written to
 gain a better understanding of how machine code and executable files
 work.
+** Features
+*** Constants
+#+BEGIN_EXAMPLE
+🖊LINUX_SYSCALL $128
+# ...
+❗ LINUX_SYSCALL
+#+END_EXAMPLE
 
-** Syntax
+*** Comments
+#+BEGIN_EXAMPLE
+# I'm a comment
+🦘= ✉exit
+#+END_EXAMPLE
+
+*** Addressing
+**** Immediate addressing
+#+BEGIN_EXAMPLE
+⚫ ⬅ $8
+#+END_EXAMPLE
+
+Load 8 into ⚫.
+
+**** Register addressing
+#+BEGIN_EXAMPLE
+🔴 ⬅ 🔵
+#+END_EXAMPLE
+
+Copies data from 🔵 into 🔴.
+
+**** Direct addressing
+#+BEGIN_EXAMPLE
+📗my_number 3
+# ...
+🔴 ⬅ my_number
+#+END_EXAMPLE
+
+This loads 3 into 🔴.
+
+**** Indirect addressing
+#+BEGIN_EXAMPLE
+🔴 ⬅ $0~🔵
+#+END_EXAMPLE
+
+This loads the value at the address contained in 🔵 into 🔴.
+
+**** Base pointer addressing
+#+BEGIN_EXAMPLE
+🔴 ⬅ $4~🔵
+#+END_EXAMPLE
+
+Or alternatively with a constant:
+
+#+BEGIN_EXAMPLE
+🖊ST_ARG $8
+# ...
+🔴 ⬅ ST_ARG~🔵
+#+END_EXAMPLE
+
+This is similar to indirect addressing except that it adds a constant offset to the address in 🔵.
+*** Labels
+*** Data sections
+*** ELF
+*** Instruction reference
 This assembler makes extensive use of UTF-8 emojis, because why not?
 
-|----------------------+-----------+---------------|
-| *Symbol*             | *Example* | *Description* |
-|----------------------+-----------+---------------|
-| ↩                    |           |               |
-| ➕                   |           |               |
-| ➖                   |           |               |
-| ✖                    |           |               |
-| ⬅                    |           |               |
-| ❗                   |           |               |
-| ⚪, 🔴, 🔵, ⚫, ◀, ⬇ |           |               |
-| 🦘=                   |           |               |
-| 🦘≠                   |           |               |
-| 🦘<                   |           |               |
-| 🦘≤                   |           |               |
-| 🦘>                   |           |               |
-| 🦘≥                   |           |               |
-| 🦘                    |           |               |
-| 📞                   |           |               |
-| 📥                   |           |               |
-| 📤                   |           |               |
-| ⚖                    |           |               |
-| 🖊                    |           |               |
-| 📪 (ends with :)     |           |               |
-| 📗                   |           |               |
-| ✉                    |           |               |
-| $                    |           |               |
-| 123                  |           |               |
-| my_constant          |           |               |
-|----------------------+-----------+---------------|
-
+|----------------------+-----------+------------------------|
+| *Symbol*             | *Example* | *Description*          |
+|----------------------+-----------+------------------------|
+| ↩                    | ↩         | Return from a function |
+| ⚪, 🔴, 🔵, ⚫, ◀, ⬇ |           |                        |
+| ➕                   | ⚪ ➕ ⚫  | =⚪ += ⚫=             |
+| ➖                   |           |                        |
+| ✖                    |           |                        |
+| ⬅                    |           |                        |
+| ❗                   |           |                        |
+| 🦘=                   |           |                        |
+| 🦘≠                   |           |                        |
+| 🦘<                   |           |                        |
+| 🦘≤                   |           |                        |
+| 🦘>                   |           |                        |
+| 🦘≥                   |           |                        |
+| 🦘                    |           |                        |
+| 📞                   |           |                        |
+| 📥                   |           |                        |
+| 📤                   |           |                        |
+| ⚖                    |           |                        |
+| 🖊                    |           |                        |
+| 📪 (ends with :)     |           |                        |
+| 📗                   |           |                        |
+| ✉                    |           |                        |
+| $                    |           |                        |
+| 123                  |           |                        |
+| my_constant          |           |                        |
+|----------------------+-----------+------------------------|
+** Implementation notes
+TODO: explain tokenize -> replace constants -> compile to intermediate -> compile intermediate -> create ELF
