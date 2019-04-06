@@ -1,7 +1,13 @@
 * jvo-asm [[https://travis-ci.org/jorenvo/jvo-asm][file:https://travis-ci.com/jorenvo/jvo-asm.svg?branch=master]]
 This is a toy x86 assembler written from scratch. It was written to
 gain a better understanding of how machine code and executable files
-work.
+work. It's syntax uses a lot of emoji's because why not?
+** Usage
+#+BEGIN_EXAMPLE
+$ cargo run -- examples/print.jas
+abc
+#+END_EXAMPLE
+
 ** Features
 *** Constants
 #+BEGIN_EXAMPLE
@@ -60,41 +66,73 @@ Or alternatively with a constant:
 🔴 ⬅ ST_ARG~🔵
 #+END_EXAMPLE
 
-This is similar to indirect addressing except that it adds a constant offset to the address in 🔵.
-*** Labels
-*** Data sections
-*** ELF
-*** Instruction reference
-This assembler makes extensive use of UTF-8 emojis, because why not?
+This is similar to indirect addressing except that it adds a constant
+offset to the address in 🔵.
 
-|----------------------+-----------+------------------------|
-| *Symbol*             | *Example* | *Description*          |
-|----------------------+-----------+------------------------|
-| ↩                    | ↩         | Return from a function |
-| ⚪, 🔴, 🔵, ⚫, ◀, ⬇ |           |                        |
-| ➕                   | ⚪ ➕ ⚫  | =⚪ += ⚫=             |
-| ➖                   |           |                        |
-| ✖                    |           |                        |
-| ⬅                    |           |                        |
-| ❗                   |           |                        |
-| 🦘=                   |           |                        |
-| 🦘≠                   |           |                        |
-| 🦘<                   |           |                        |
-| 🦘≤                   |           |                        |
-| 🦘>                   |           |                        |
-| 🦘≥                   |           |                        |
-| 🦘                    |           |                        |
-| 📞                   |           |                        |
-| 📥                   |           |                        |
-| 📤                   |           |                        |
-| ⚖                    |           |                        |
-| 🖊                    |           |                        |
-| 📪 (ends with :)     |           |                        |
-| 📗                   |           |                        |
-| ✉                    |           |                        |
-| $                    |           |                        |
-| 123                  |           |                        |
-| my_constant          |           |                        |
-|----------------------+-----------+------------------------|
+*** Labels
+#+BEGIN_EXAMPLE
+🦘 ✉exit
+# ...
+📪exit:
+⚪ ⬅ $1
+❗ LINUX_SYSCALL
+#+END_EXAMPLE
+
+Labels are defined by prefixing them with 📪 and ending them with a
+=:=. To refer to a label prefix it with ✉ instead.
+*** Data sections
+#+BEGIN_EXAMPLE
+📗numbers 3, 67, 34, 222, 45
+# ...
+🔵 ⬅ numbers
+#+END_EXAMPLE
+
+Data sections start with 📗 and can be referred to later by just their
+name.
+*** ELF
+jvo-asm builds a correct, =objdump= compatible ELF header.
+
+*** Instruction reference
+**** Registers
+|----------+--------|
+| *Symbol* | *Name* |
+|----------+--------|
+| ⚪       | =%eax= |
+| 🔴       | =%ebx= |
+| 🔵       | =%ecx= |
+| ⚫       | =%edx= |
+| ◀        | =%esp= |
+| ⬇        | =%ebp= |
+|----------+--------|
+
+**** Instructions
+|------------------+-----------+--------------------------|
+| *Symbol*         | *Example* | *Description*            |
+|------------------+-----------+--------------------------|
+| ↩                | ↩         | Return from a function   |
+| ➕               | ⚪ ➕ ⚫  | ~⚪ += ⚫~               |
+| ➖               | ⚪ ➖ ⚫  | ~⚪ -= ⚫~               |
+| ✖                | ⚪ ✖ ⚫   | ~⚪ *= ⚫~               |
+| ⬅                | 🔴 ⬅ $1   | Move into register       |
+| ❗               | ❗ $128   | Interrupt                |
+| ⚖                | ⚖ ⚫, ⚪  | Compare ⚫ to ⚪         |
+| 🦘=               | 🦘= ✉exit  | Jump if equal            |
+| 🦘≠               | 🦘≠ ✉exit  | Jump if not equal        |
+| 🦘<               | 🦘< ✉exit  | Jump if less than        |
+| 🦘≤               | 🦘≤ ✉exit  | Jump if less or equal    |
+| 🦘>               | 🦘> ✉exit  | Jump if greater than     |
+| 🦘≥               | 🦘≥ ✉exit  | Jump if greater or equal |
+| 🦘                | 🦘 ✉exit   | Unconditional jump       |
+| 📞               | 📞 fn     | Call function            |
+| 📥               | 📥 $8     | Push onto stack          |
+| 📤               | 📤 🔵     | Pop from stack           |
+| 🖊                |           |                          |
+| 📪 (ends with :) |           |                          |
+| 📗               |           |                          |
+| ✉                |           |                          |
+| $                |           |                          |
+| 123              |           |                          |
+| my_constant      |           |                          |
+|------------------+-----------+--------------------------|
 ** Implementation notes
 TODO: explain tokenize -> replace constants -> compile to intermediate -> compile intermediate -> create ELF
