@@ -5,7 +5,8 @@
 🖊LINUX_SYSCALL $128
 
 # program
-📥 $174285409
+# sum([ord(x) << (i * 8) for i, x in enumerate('hi!\n')])
+📥 $169961832
 
 ⚪ ⬅ SYS_WRITE
 🔴 ⬅ STDOUT

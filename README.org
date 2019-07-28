@@ -3,9 +3,11 @@ This is a toy x86 assembler written from scratch. It was written to
 gain a better understanding of how machine code and executable files
 work. It's syntax uses a lot of emoji's because why not?
 ** Usage
+Using the [[examples/print.jas][print example]]:
+
 #+BEGIN_EXAMPLE
 $ cargo run -- examples/print.jas
-abc
+hi!
 #+END_EXAMPLE
 
 ** Features
