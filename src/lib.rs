@@ -140,7 +140,7 @@ fn process(filename: &str) -> Result<Vec<DataSection>, Box<error::Error>> {
             })
             .collect();
 
-        let mut intermediate_instruction = compile(tokens)?;
+        let intermediate_instruction = compile(tokens)?;
         let mut padded_intermediate_instruction = vec![];
         let mut displacements = vec![];
         for intermediate in intermediate_instruction {
