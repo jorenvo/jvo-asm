@@ -103,7 +103,7 @@ jump. After this we iterate through the =IntermediateCode= and replace
 the displacements with bytes. This is done by keeping track of the
 byte offset of each instruction in the program during the first step.
 
-After this an ELF binary is built. It's layout is as follows (the
+After this an ELF binary is built. Its layout is as follows (the
 [[examples/multiple_data_sections.jas][multiple data sections example]] was used here):
 
 #+BEGIN_EXAMPLE
@@ -173,31 +173,31 @@ allow for linking a correct section header is also generated.
 |----------+--------|
 
 *** Instructions
-|------------------+-----------+--------------------------|
-| *Symbol*         | *Example* | *Description*            |
-|------------------+-----------+--------------------------|
-| ↩                | ↩         | Return from a function   |
-| ➕               | ⚪ ➕ ⚫  | ~⚪ += ⚫~               |
-| ➖               | ⚪ ➖ ⚫  | ~⚪ -= ⚫~               |
-| ✖                | ⚪ ✖ ⚫   | ~⚪ *= ⚫~               |
-| ⬅                | 🔴 ⬅ $1   | Move into register       |
-| ❗               | ❗ $128   | Interrupt                |
-| ⚖                | ⚖ ⚫, ⚪  | Compare ⚫ to ⚪         |
-| 🦘=               | 🦘= ✉exit  | Jump if equal            |
-| 🦘≠               | 🦘≠ ✉exit  | Jump if not equal        |
-| 🦘<               | 🦘< ✉exit  | Jump if less than        |
-| 🦘≤               | 🦘≤ ✉exit  | Jump if less or equal    |
-| 🦘>               | 🦘> ✉exit  | Jump if greater than     |
-| 🦘≥               | 🦘≥ ✉exit  | Jump if greater or equal |
-| 🦘                | 🦘 ✉exit   | Unconditional jump       |
-| 📞               | 📞 fn     | Call function            |
-| 📥               | 📥 $8     | Push onto stack          |
-| 📤               | 📤 🔵     | Pop from stack           |
-| 🖊                |           |                          |
-| 📪 (ends with :) |           |                          |
-| 📗               |           |                          |
-| ✉                |           |                          |
-| $                |           |                          |
-| 123              |           |                          |
-| my_constant      |           |                          |
-|------------------+-----------+--------------------------|
+|------------------+--------------+-----------------------------------------------------|
+| *Symbol*         | *Example*    | *Description*                                       |
+|------------------+--------------+-----------------------------------------------------|
+| ↩                | ↩            | Return from a function                              |
+| 📞               | 📞 fn        | Call function                                       |
+| ➕               | ⚪ ➕ ⚫     | ~⚪ += ⚫~                                          |
+| ➖               | ⚪ ➖ ⚫     | ~⚪ -= ⚫~                                          |
+| ✖                | ⚪ ✖ ⚫      | ~⚪ *= ⚫~                                          |
+| ⬅                | 🔴 ⬅ $1      | Move into register                                  |
+| ❗               | ❗ $128      | Interrupt                                           |
+| ⚖                | ⚖ ⚫, ⚪     | Compare ⚫ to ⚪                                    |
+| 🦘=              | 🦘= ✉exit    | Jump if equal                                       |
+| 🦘≠              | 🦘≠ ✉exit    | Jump if not equal                                   |
+| 🦘<              | 🦘< ✉exit    | Jump if less than                                   |
+| 🦘≤              | 🦘≤ ✉exit    | Jump if less or equal                               |
+| 🦘>              | 🦘> ✉exit    | Jump if greater than                                |
+| 🦘≥              | 🦘≥ ✉exit    | Jump if greater or equal                            |
+| 🦘               | 🦘 ✉exit     | Unconditional jump                                  |
+| 📥               | 📥 $8        | Push onto stack                                     |
+| 📤               | 📤 🔵        | Pop from stack                                      |
+| 🖊                | 🖊c $4        | Define constant =c= to be 4                         |
+| 📪 (ends with :) | 📪exit:      | Define a label with name =exit=                     |
+| 📗               | 📗pi 3, 1, 4 | Define a data section =pi= containing 3 integers    |
+| ✉                | ✉exit        | Refer to a previously defined (📪) exit label       |
+| $                | $1           | 1 is a number                                       |
+| [0-9]+           | 1            | 1 is a memory address                               |
+| [aA-zZ]+         | constant     | =constant= is a previously defined (🖊, 📗) constant |
+|------------------+--------------+-----------------------------------------------------|
