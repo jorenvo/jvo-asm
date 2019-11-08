@@ -61,3 +61,13 @@ pub enum IntermediateCode {
 
     Padding,
 }
+
+pub struct DataSection {
+    pub name: String,
+    pub bytes: Vec<u8>,
+}
+
+pub const DATA_SECTION_PHYSICAL_START: u32 = 0x1000;
+pub const CODE_SECTION_NAME: &str = ".code";
+pub const DATA_SECTION_VIRTUAL_START: u32 = 0x0804_9000;
+pub const PAGE_SIZE: u32 = 0x1000;
