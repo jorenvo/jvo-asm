@@ -42,11 +42,6 @@ pub enum TokenType {
     Section,
 }
 
-pub enum ExecutableFormat {
-    MachO,
-    ELF,
-}
-
 #[derive(Clone, Debug)]
 pub struct Token {
     pub t: Option<TokenType>,

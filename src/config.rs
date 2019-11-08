@@ -11,11 +11,8 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-use common::ExecutableFormat;
-
 pub struct Config {
     pub filename: String,
-    pub exec_format: ExecutableFormat,
 }
 
 impl Config {
@@ -27,7 +24,6 @@ impl Config {
         } else {
             Ok(Config {
                 filename: args.remove(0),
-                exec_format: ExecutableFormat::ELF,
             })
         }
     }
