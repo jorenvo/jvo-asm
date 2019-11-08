@@ -39,7 +39,7 @@ struct DataSection {
     bytes: Vec<u8>,
 }
 
-fn process(filename: &str) -> Result<Vec<DataSection>, Box<error::Error>> {
+fn process(filename: &str) -> Result<Vec<DataSection>, Box<dyn error::Error>> {
     let content = fs::read_to_string(filename)?;
 
     // Contains a section for the executable code and other data

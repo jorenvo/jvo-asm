@@ -36,8 +36,8 @@ impl error::Error for CompileError {
 }
 
 trait Instruction {
-    fn validate(&self) -> Result<(), Box<error::Error>>;
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>>;
+    fn validate(&self) -> Result<(), Box<dyn error::Error>>;
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>>;
 
     fn format_tokens(&self, tokens: &[&Token]) -> String {
         tokens.iter().fold("".to_string(), |acc, t| {
@@ -45,7 +45,7 @@ trait Instruction {
         })
     }
 
-    fn get_reg_value(&self, token: &Token) -> Result<u8, Box<error::Error>> {
+    fn get_reg_value(&self, token: &Token) -> Result<u8, Box<dyn error::Error>> {
         // p 574
         match token.value.as_str() {
             "⚪" => Ok(0),  // eax
@@ -64,7 +64,7 @@ trait Instruction {
         &self,
         expected: Vec<HashSet<TokenType>>,
         given: Vec<&Token>,
-    ) -> Result<(), Box<error::Error>> {
+    ) -> Result<(), Box<dyn error::Error>> {
         // This shouldn't happen because the compiler already created
         // the instruction before and probably dropped any excess
         // tokens.
@@ -134,7 +134,7 @@ struct InstructionMove<'a> {
 }
 
 impl<'a> Instruction for InstructionMove<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Register]
@@ -153,7 +153,7 @@ impl<'a> Instruction for InstructionMove<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
         // p 1161
         match self.operand.t {
@@ -207,7 +207,7 @@ struct InstructionMoveModRM<'a> {
 }
 
 impl<'a> Instruction for InstructionMoveModRM<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Register]
@@ -223,7 +223,7 @@ impl<'a> Instruction for InstructionMoveModRM<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
 
         let modrm = self.calc_modrm(
@@ -248,7 +248,7 @@ struct InstructionAddSubtract<'a> {
 }
 
 impl<'a> Instruction for InstructionAddSubtract<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Register]
@@ -265,7 +265,7 @@ impl<'a> Instruction for InstructionAddSubtract<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
 
         // p603
@@ -318,7 +318,7 @@ struct InstructionMultiply<'a> {
 }
 
 impl<'a> Instruction for InstructionMultiply<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Register]
@@ -335,7 +335,7 @@ impl<'a> Instruction for InstructionMultiply<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
 
         // p1017
@@ -384,7 +384,7 @@ struct InstructionJump<'a> {
 }
 
 impl<'a> Instruction for InstructionJump<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Jump].into_iter().collect::<HashSet<_>>(),
@@ -396,7 +396,7 @@ impl<'a> Instruction for InstructionJump<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
         // p 1063
         // p 87 specifying an offset
@@ -413,7 +413,7 @@ struct InstructionCall<'a> {
 }
 
 impl<'a> Instruction for InstructionCall<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Call].into_iter().collect::<HashSet<_>>(),
@@ -425,7 +425,7 @@ impl<'a> Instruction for InstructionCall<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
         // p 694
         // p 87 specifying an offset
@@ -441,14 +441,14 @@ struct InstructionReturn<'a> {
 }
 
 impl<'a> Instruction for InstructionReturn<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![vec![TokenType::Return].into_iter().collect::<HashSet<_>>()],
             vec![&self.operation],
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
         // p 1675
         Ok(vec![IntermediateCode::Byte(0xc3)])
@@ -461,7 +461,7 @@ struct InstructionInterrupt<'a> {
 }
 
 impl<'a> Instruction for InstructionInterrupt<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Interrupt]
@@ -473,7 +473,7 @@ impl<'a> Instruction for InstructionInterrupt<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
         // p 1031
         Ok(vec![
@@ -489,7 +489,7 @@ struct InstructionPush<'a> {
 }
 
 impl<'a> Instruction for InstructionPush<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Push].into_iter().collect::<HashSet<_>>(),
@@ -501,7 +501,7 @@ impl<'a> Instruction for InstructionPush<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
 
         // p 1633
@@ -534,7 +534,7 @@ struct InstructionPushModRM<'a> {
 }
 
 impl<'a> Instruction for InstructionPushModRM<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Push].into_iter().collect::<HashSet<_>>(),
@@ -547,7 +547,7 @@ impl<'a> Instruction for InstructionPushModRM<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
 
         let opcode = 0xff;
@@ -575,7 +575,7 @@ struct InstructionPop<'a> {
 }
 
 impl<'a> Instruction for InstructionPop<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Pop].into_iter().collect::<HashSet<_>>(),
@@ -587,7 +587,7 @@ impl<'a> Instruction for InstructionPop<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
 
         // p 1633
@@ -603,7 +603,7 @@ struct InstructionCompare<'a> {
 }
 
 impl<'a> Instruction for InstructionCompare<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![TokenType::Compare].into_iter().collect::<HashSet<_>>(),
@@ -618,7 +618,7 @@ impl<'a> Instruction for InstructionCompare<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
 
         // p 725
@@ -666,7 +666,7 @@ struct InstructionJumpIf<'a> {
 }
 
 impl<'a> Instruction for InstructionJumpIf<'a> {
-    fn validate(&self) -> Result<(), Box<error::Error>> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
         self.validate_tokens(
             vec![
                 vec![
@@ -687,7 +687,7 @@ impl<'a> Instruction for InstructionJumpIf<'a> {
         )
     }
 
-    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate()?;
 
         // p 1058
@@ -1600,8 +1600,8 @@ mod test_instructions {
     }
 }
 
-pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<error::Error>> {
-    let mut operation: Option<Box<Instruction>> = None;
+pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
+    let mut operation: Option<Box<dyn Instruction>> = None;
 
     for token in tokens.iter() {
         operation = match token.t {

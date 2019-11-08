@@ -31,7 +31,7 @@ impl error::Error for TokenizeError {
     }
 }
 
-fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
+fn tokenize_word(word: &str) -> Result<Token, Box<dyn error::Error>> {
     let mut token = Token {
         t: None,
         value: word.to_string(),
@@ -131,7 +131,7 @@ fn tokenize_word(word: &str) -> Result<Token, Box<error::Error>> {
     Ok(token)
 }
 
-pub fn tokenize(line: &str) -> Result<Vec<Token>, Box<error::Error>> {
+pub fn tokenize(line: &str) -> Result<Vec<Token>, Box<dyn error::Error>> {
     let mut tokens = vec![];
     let ignore_char = |c: char| c == ',' || c.is_whitespace();
     let is_delimiter = |c: char| c == ' ' || c == '~';
