@@ -546,12 +546,11 @@ pub fn run(config: Config) -> std::io::Result<()> {
         &data_section_names,
         string_table.len() as u32,
     );
-    let mut file = fs::File::create("a.out")?;
-    file.set_permissions(PermissionsExt::from_mode(0o755))?;
+    let mut file_buffer: Vec<u8> = vec![];
 
-    file.write_all(&elf_header)?;
-    file.write_all(&program_header)?;
-    file.write_all(&section_header)?;
+    file_buffer.append(&mut elf_header.clone());
+    file_buffer.append(&mut program_header.clone());
+    file_buffer.append(&mut section_header.clone());
 
     // string table starts at STRTABLE_PHYSICAL_ENTRY_POINT
     let padding = vec![
@@ -561,8 +560,8 @@ pub fn run(config: Config) -> std::io::Result<()> {
             - program_header.len()
             - section_header.len()
     ];
-    file.write_all(&padding)?;
-    file.write_all(&string_table)?;
+    file_buffer.append(&mut padding.clone());
+    file_buffer.append(&mut string_table);
 
     let padding = vec![
         0;
@@ -570,20 +569,23 @@ pub fn run(config: Config) -> std::io::Result<()> {
             - STRTABLE_PHYSICAL_ENTRY_POINT as usize
             - string_table.len()
     ];
-    file.write_all(&padding)?;
+    file_buffer.append(&mut padding.clone());
 
     // insert data sections
     // DATA_SECTION_PHYSICAL_START
     for section in data_sections.iter() {
         let data = &section.bytes;
-        file.write_all(&data)?;
+        file_buffer.append(&mut data.clone());
 
         // pad current data section
         let padding = vec![0; PAGE_SIZE as usize - (data.len() % PAGE_SIZE as usize)];
-        file.write_all(&padding)?;
+        file_buffer.append(&mut padding.clone());
     }
 
-    file.write_all(&program)?;
+    file_buffer.append(&mut program.clone());
+    let file = fs::File::create("a.out")?;
+    file_buffer.append(&mut file_buffer.clone());
+    file.set_permissions(PermissionsExt::from_mode(0o755))?;
 
     Ok(())
 }
