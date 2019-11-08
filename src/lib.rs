@@ -583,10 +583,9 @@ pub fn run(config: Config) -> std::io::Result<()> {
     }
 
     file_buffer.append(&mut program.clone());
-
-    let mut file = fs::File::create("a.out")?;
+    let file = fs::File::create("a.out")?;
+    file_buffer.append(&mut file_buffer.clone());
     file.set_permissions(PermissionsExt::from_mode(0o755))?;
-    file.write_all(&file_buffer)?;
 
     Ok(())
 }
