@@ -23,6 +23,43 @@ pub trait Executable {
     fn create(&mut self, data_sections: Vec<DataSection>, file: fs::File) -> std::io::Result<()>;
 }
 
+pub struct MachO {}
+
+impl MachO {
+    pub fn create_header(&mut self) -> Vec<u8> {
+        const MAGIC: u32 = 0xfeedface; // MH_MAGIC
+        const CPU_TYPE: u32 = 16777223; // x86_64 todo, maybe specify 32?
+        const CPU_SUBTYPE: u32 = 3; // ALL
+        const FILETYPE: u32 = 2; // EXECUTE
+        const NCMDS: u32 = 1; // TODO: clang does 16
+        const SIZEOFCMDS: u32 = 0; // TODO
+
+        // TODO: clang also uses TWOLEVEL
+        const NOUNDEFS: u32 = 0x1;
+        const DYLDLINK: u32 = 0x4;
+        const FLAGS: u32 = NOUNDEFS | DYLDLINK;
+
+        let mut header: Vec<u8> = vec![];
+        header.extend_from_slice(&MAGIC.to_le_bytes());
+        header.extend_from_slice(&CPU_TYPE.to_le_bytes());
+        header.extend_from_slice(&CPU_SUBTYPE.to_le_bytes());
+        header.extend_from_slice(&FILETYPE.to_le_bytes());
+        header.extend_from_slice(&NCMDS.to_le_bytes());
+        header.extend_from_slice(&SIZEOFCMDS.to_le_bytes());
+        header.extend_from_slice(&FLAGS.to_le_bytes());
+
+        header
+    }
+}
+
+impl Executable for MachO {
+    fn create(&mut self, data_sections: Vec<DataSection>, mut file: fs::File) -> std::io::Result<()> {
+        let mut header = self.create_header();
+        file.write_all(&mut header)?;
+        Ok(())
+    }
+}
+
 pub struct ELF {}
 
 impl ELF {
@@ -366,7 +403,11 @@ mod test_elf {
 }
 
 impl Executable for ELF {
-    fn create(&mut self, mut data_sections: Vec<DataSection>, mut file: fs::File) -> std::io::Result<()> {
+    fn create(
+        &mut self,
+        mut data_sections: Vec<DataSection>,
+        mut file: fs::File,
+    ) -> std::io::Result<()> {
         // + 2 for string table and null sentinel
         let elf_header =
             self.create_elf_header(data_sections.len() as u32, data_sections.len() as u32 + 2);
