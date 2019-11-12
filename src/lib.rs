@@ -20,7 +20,7 @@ mod tokenizer;
 use common::*;
 use compiler::*;
 use config::*;
-use executable::{Executable, ELF};
+use executable::{Executable, ELF, MachO};
 use std::collections::HashMap;
 use std::{error, fs};
 use tokenizer::*;
@@ -182,10 +182,17 @@ pub fn run(config: Config) -> std::io::Result<()> {
 
     let data_sections = process(&config.filename).unwrap();
 
-    // branch here
-    let mut elf: ELF = ELF {};
     let file = fs::File::create("a.out")?;
-    elf.create(data_sections, file)?;
+    match config.exec_format {
+        common::ExecutableFormat::ELF => {
+            let mut elf: ELF = ELF {};
+            elf.create(data_sections, file)?;
+        },
+        common::ExecutableFormat::MachO => {
+            let mut mach: MachO = MachO {};
+            mach.create(data_sections, file)?;
+        }
+    }
 
     Ok(())
 }

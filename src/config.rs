@@ -11,19 +11,27 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+use common::ExecutableFormat;
+
 pub struct Config {
     pub filename: String,
+    pub exec_format: ExecutableFormat,
 }
 
 impl Config {
     pub fn new(mut args: Vec<String>) -> Result<Config, String> {
         let program_name = args.remove(0);
 
-        if args.is_empty() {
-            Err(format!("Usage: {} program.jas", program_name))
+        if args.len() < 2 {
+            Err(format!("Usage: {} [mach/elf] program.jas", program_name))
         } else {
+            let mut format = ExecutableFormat::ELF;
+            if args.remove(0) == "mach" {
+                format = ExecutableFormat::MachO;
+            }
             Ok(Config {
                 filename: args.remove(0),
+                exec_format: format,
             })
         }
     }
