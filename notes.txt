@@ -1,0 +1,4 @@
+Mach-O
+https://github.com/aidansteele/osx-abi-macho-file-format-reference/blob/master/Mach-O_File_Format.pdf
+https://www.objc.io/issues/6-build-tools/mach-o-executables/
+https://opensource.apple.com/source/xnu/xnu-792/EXTERNAL_HEADERS/mach-o/loader.h
