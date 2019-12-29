@@ -27,8 +27,10 @@ pub struct MachO {}
 
 impl MachO {
     pub fn create_header(&mut self, ncmds: u32, sizeofcmds: u32) -> Vec<u8> {
-        const MAGIC: u32 = 0xfeed_face; // MH_MAGIC
-        const CPU_TYPE: u32 = 16_777_223; // x86_64 todo, maybe specify 32?
+        const MAGIC: u32 = 0xfeed_facf; // Mach-O Big Endian (64-bit)
+        const CPU_ARCH_ABI64: u32 = 0x1000000;
+        const CPU_TYPE_I386: u32 = 7;
+        const CPU_TYPE: u32 = CPU_ARCH_ABI64 | CPU_TYPE_I386; // x86_64
         const CPU_SUBTYPE: u32 = 3; // ALL
         const FILETYPE: u32 = 2; // EXECUTE
 
@@ -45,40 +47,22 @@ impl MachO {
         header.extend_from_slice(&ncmds.to_le_bytes());
         header.extend_from_slice(&sizeofcmds.to_le_bytes());
         header.extend_from_slice(&FLAGS.to_le_bytes());
+        header.extend_from_slice(&(0x00 as u32).to_le_bytes());
 
         header
     }
 
     pub fn create_command(&mut self) -> Vec<u8> {
-        const CMD: u32 = 0x1; // LC_SEGMENT
+        const CMD: u32 = 0x19; // LC_SEGMENT_32
         let mut command: Vec<u8> = vec![];
 
-        /*
-        struct segment_command {
-            unsigned long	cmd;		/* LC_SEGMENT */
-            unsigned long	cmdsize;	/* includes sizeof section structs */
-            char		segname[16];	/* segment name */
-            unsigned long	vmaddr;		/* memory address of this segment */
-            unsigned long	vmsize;		/* memory size of this segment */
-            unsigned long	fileoff;	/* file offset of this segment */
-            unsigned long	filesize;	/* amount to map from the file */
-            vm_prot_t	maxprot;	/* maximum VM protection */
-            vm_prot_t	initprot;	/* initial VM protection */
-            unsigned long	nsects;		/* number of sections in segment */
-            unsigned long	flags;		/* flags */
-        };
-
-        this is 64 bit, for 32 bit: 11 fields. 10 of these are 4 bytes. 1 is 16 bytes.
-        40 bytes + 16 bytes = 56 bytes
-        */
-
         command.extend_from_slice(&CMD.to_le_bytes());
-        command.extend_from_slice(&(56 as u32).to_le_bytes()); // todo cmdsize
+        command.extend_from_slice(&(72 as u32).to_le_bytes()); // todo cmdsize
         command.extend_from_slice(b"__PAGEZERO\0\0\0\0\0\0"); // segname, 16 bytes
-        command.extend_from_slice(&DATA_SECTION_VIRTUAL_START.to_le_bytes()); // vmaddr
-        command.extend_from_slice(&(0x1000 as u32).to_le_bytes()); // vmsize, should be the same as filesize
-        command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo fileoff, offset in file to map
-        command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo filesize
+        command.extend_from_slice(&(DATA_SECTION_VIRTUAL_START as u64).to_le_bytes()); // vmaddr
+        command.extend_from_slice(&(0x1000 as u64).to_le_bytes()); // vmsize, should be the same as filesize
+        command.extend_from_slice(&(0x00 as u64).to_le_bytes()); // todo fileoff, offset in file to map
+        command.extend_from_slice(&(0x00 as u64).to_le_bytes()); // todo filesize
         command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo maxprot
         command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo initprot
         command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo nsects
