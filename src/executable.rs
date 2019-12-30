@@ -52,44 +52,114 @@ impl MachO {
         header
     }
 
-    pub fn create_command(&mut self) -> Vec<u8> {
-        const CMD: u32 = 0x19; // LC_SEGMENT_32
+    pub fn create_segment_command(
+        &mut self,
+        section_size: u32,
+        segname: &str,
+        vmaddr: u64,
+        fileoff: u64,
+        nsects: u32,
+    ) -> Vec<u8> {
+        const CMD: u32 = 0x19; // LC_SEGMENT_64
         let mut command: Vec<u8> = vec![];
 
         command.extend_from_slice(&CMD.to_le_bytes());
-        command.extend_from_slice(&(72 as u32).to_le_bytes()); // todo cmdsize
-        command.extend_from_slice(b"__PAGEZERO\0\0\0\0\0\0"); // segname, 16 bytes
-        command.extend_from_slice(&(DATA_SECTION_VIRTUAL_START as u64).to_le_bytes()); // vmaddr
-        command.extend_from_slice(&(0x1000 as u64).to_le_bytes()); // vmsize, should be the same as filesize
-        command.extend_from_slice(&(0x00 as u64).to_le_bytes()); // todo fileoff, offset in file to map
-        command.extend_from_slice(&(0x00 as u64).to_le_bytes()); // todo filesize
+
+        const CMD_SIZE: u32 = 72;
+        const SECTION_SIZE: u32 = 80;  // size of section
+        command.extend_from_slice(&(CMD_SIZE + SECTION_SIZE * nsects).to_le_bytes()); // cmdsize
+
+        command.extend_from_slice(format!("{:\0<16}", segname).as_bytes()); // segname, 16 bytes
+        command.extend_from_slice(&vmaddr.to_le_bytes()); // vmaddr
+
+        // pagezero is empty
+        if section_size == 0 {
+            command.extend_from_slice(&(0x1000 as u64).to_le_bytes()); // vmsize, should be the same as filesize
+        } else {
+            command.extend_from_slice(&(section_size as u64).to_le_bytes()); // vmsize, should be the same as filesize
+        }
+
+        command.extend_from_slice(&fileoff.to_le_bytes()); // fileoff, offset in file to map
+        command.extend_from_slice(&(section_size as u64).to_le_bytes()); // filesize
         command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo maxprot
         command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo initprot
-        command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo nsects
+        command.extend_from_slice(&nsects.to_le_bytes()); // nsects
         command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo flags
 
         command
+    }
+
+    pub fn create_section(
+        &mut self,
+        sectname: &str,
+        vmaddr: u64,
+        size: u64,
+        fileoff: u32,
+    ) -> Vec<u8> {
+        let mut section: Vec<u8> = vec![];
+
+        section.extend_from_slice(format!("{:\0<16}", sectname).as_bytes()); // sectname, 16 bytes
+        section.append(&mut vec![0; 16]); // todo segname, 16 bytes
+        section.extend_from_slice(&vmaddr.to_le_bytes());
+        section.extend_from_slice(&size.to_le_bytes());
+        section.extend_from_slice(&fileoff.to_le_bytes());
+        section.extend_from_slice(&(3 as u32).to_le_bytes()); // todo align (2^3, so byte-aligned)
+        section.extend_from_slice(&(0 as u32).to_le_bytes()); // todo reloff
+        section.extend_from_slice(&(0 as u32).to_le_bytes()); // todo nreloc
+        section.extend_from_slice(&(0 as u32).to_le_bytes()); // flags, S_REGULAR
+        section.extend_from_slice(&(0 as u32).to_le_bytes()); // reserved1
+        section.extend_from_slice(&(0 as u32).to_le_bytes()); // reserved2
+
+        section
     }
 }
 
 impl Executable for MachO {
     fn create(
         &mut self,
-        _data_sections: Vec<DataSection>,
+        data_sections: Vec<DataSection>,
         mut file: fs::File,
     ) -> std::io::Result<()> {
-        let zero_page_cmd = self.create_command();
-        let header = self.create_header(1, zero_page_cmd.len() as u32);
-
         let mut executable: Vec<u8> = vec![];
-        executable.extend_from_slice(&header);
-        executable.extend_from_slice(&zero_page_cmd);
-        file.write_all(&executable)?;
-        Ok(())
+        let zeropage_segment_cmd = self.create_segment_command(0, "__PAGEZERO", 0, 0, 0);
 
-        // todo load command for segment 1
-        // todo create __PAGEZERO segment
-        // create segment 1 with multiple sections
+        let temp_data_name = &data_sections[0].name;
+        let mut temp_data_bytes = data_sections[0].bytes.clone();
+
+        // pad to a multiple of 8 
+        while temp_data_bytes.len() % 8 != 0 {
+            temp_data_bytes.push(0);
+        }
+
+        let code_segment_cmd = self.create_segment_command(
+            temp_data_bytes.len() as u32,
+            temp_data_name.as_str(),
+            DATA_SECTION_VIRTUAL_START as u64,
+            0,
+            1,
+        );
+
+        let header = self.create_header(
+            2,
+            (zeropage_segment_cmd.len() + code_segment_cmd.len()) as u32,
+        );
+
+        executable.extend_from_slice(&header);
+        executable.extend_from_slice(&zeropage_segment_cmd);
+        executable.extend_from_slice(&code_segment_cmd);
+
+        let code_section = self.create_section(
+            temp_data_name.as_str(),
+            DATA_SECTION_VIRTUAL_START as u64,
+            temp_data_bytes.len() as u64,
+            executable.len() as u32,
+        );
+
+        executable.extend_from_slice(&code_section);
+        executable.extend_from_slice(&temp_data_bytes);
+        file.write_all(&executable)?;
+
+        Ok(())
     }
 }
 
