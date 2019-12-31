@@ -84,7 +84,10 @@ impl MachO {
         command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo maxprot
         command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo initprot
         command.extend_from_slice(&nsects.to_le_bytes()); // nsects
-        command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo flags
+
+        const VM_PROT_READ: u32 = 0x01;
+        const VM_PROT_EXECUTE: u32 = 0x04;
+        command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes()); // todo flags
 
         command
     }
@@ -106,7 +109,9 @@ impl MachO {
         section.extend_from_slice(&(3 as u32).to_le_bytes()); // todo align (2^3, so byte-aligned)
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // todo reloff
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // todo nreloc
-        section.extend_from_slice(&(0 as u32).to_le_bytes()); // flags, S_REGULAR
+
+        const INSTRUCTIONS_FLAG: u32 = 0x80000000; // S_ATTR_PURE_INSTRUCTIONS
+        section.extend_from_slice(&INSTRUCTIONS_FLAG.to_le_bytes()); // flags
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // reserved1
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // reserved2
 
@@ -121,7 +126,16 @@ impl Executable for MachO {
         mut file: fs::File,
     ) -> std::io::Result<()> {
         let mut executable: Vec<u8> = vec![];
+        let ncommands = 2;
+        let header = self.create_header(
+            2,
+            ncommands * 72, // todo dedupl load command size
+        );
+
         let zeropage_segment_cmd = self.create_segment_command(0, "__PAGEZERO", 0, 0, 0);
+
+        executable.extend_from_slice(&header);
+        executable.extend_from_slice(&zeropage_segment_cmd);
 
         let temp_data_name = &data_sections[0].name;
         let mut temp_data_bytes = data_sections[0].bytes.clone();
@@ -135,17 +149,10 @@ impl Executable for MachO {
             temp_data_bytes.len() as u32,
             temp_data_name.as_str(),
             DATA_SECTION_VIRTUAL_START as u64,
-            0,
+            executable.len() as u64,
             1,
         );
 
-        let header = self.create_header(
-            2,
-            (zeropage_segment_cmd.len() + code_segment_cmd.len()) as u32,
-        );
-
-        executable.extend_from_slice(&header);
-        executable.extend_from_slice(&zeropage_segment_cmd);
         executable.extend_from_slice(&code_segment_cmd);
 
         let code_section = self.create_section(
