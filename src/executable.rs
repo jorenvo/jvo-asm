@@ -95,6 +95,7 @@ impl MachO {
     pub fn create_section(
         &mut self,
         sectname: &str,
+        segname: &str,
         vmaddr: u64,
         size: u64,
         fileoff: u32,
@@ -102,15 +103,16 @@ impl MachO {
         let mut section: Vec<u8> = vec![];
 
         section.extend_from_slice(format!("{:\0<16}", sectname).as_bytes()); // sectname, 16 bytes
-        section.append(&mut vec![0; 16]); // todo segname, 16 bytes
+        section.extend_from_slice(format!("{:\0<16}", segname).as_bytes()); // segname, 16 bytes
         section.extend_from_slice(&vmaddr.to_le_bytes());
         section.extend_from_slice(&size.to_le_bytes());
         section.extend_from_slice(&fileoff.to_le_bytes());
-        section.extend_from_slice(&(3 as u32).to_le_bytes()); // todo align (2^3, so byte-aligned)
+        section.extend_from_slice(&(0 as u32).to_le_bytes()); // todo align (2^3, so byte-aligned)
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // todo reloff
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // todo nreloc
 
         const INSTRUCTIONS_FLAG: u32 = 0x80000000; // S_ATTR_PURE_INSTRUCTIONS
+        // const FOUR_BYTE_LITERALS: u32 = 0x3; // todo S_4BYTE_LITERALS
         section.extend_from_slice(&INSTRUCTIONS_FLAG.to_le_bytes()); // flags
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // reserved1
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // reserved2
@@ -125,6 +127,11 @@ impl Executable for MachO {
         data_sections: Vec<DataSection>,
         mut file: fs::File,
     ) -> std::io::Result<()> {
+        for section in &data_sections {
+            dbg!(&section.name);
+            println!("{:x?}", section.bytes);
+        }
+
         let mut executable: Vec<u8> = vec![];
         let ncommands = 2;
         let header = self.create_header(
@@ -137,7 +144,7 @@ impl Executable for MachO {
         executable.extend_from_slice(&header);
         executable.extend_from_slice(&zeropage_segment_cmd);
 
-        let temp_data_name = &data_sections[0].name;
+        let data_section_size = data_sections[0].bytes.len();
         let mut temp_data_bytes = data_sections[0].bytes.clone();
 
         // pad to a multiple of 8 
@@ -147,7 +154,7 @@ impl Executable for MachO {
 
         let code_segment_cmd = self.create_segment_command(
             temp_data_bytes.len() as u32,
-            temp_data_name.as_str(),
+            "__TEXT", // todo temp_data_name.as_str(),
             DATA_SECTION_VIRTUAL_START as u64,
             executable.len() as u64,
             1,
@@ -156,10 +163,11 @@ impl Executable for MachO {
         executable.extend_from_slice(&code_segment_cmd);
 
         let code_section = self.create_section(
-            temp_data_name.as_str(),
+            "__text", // todo temp_data_name.as_str(),
+            "__TEXT",  // todo
             DATA_SECTION_VIRTUAL_START as u64,
-            temp_data_bytes.len() as u64,
-            executable.len() as u32,
+            data_section_size as u64,
+            executable.len() as u32 + 76,  // todo 76 is the size of a section
         );
 
         executable.extend_from_slice(&code_section);
