@@ -54,6 +54,7 @@ trait Instruction {
             "🔴" => Ok(3), // ebx
             "◀" => Ok(4),  // esp
             "⬇" => Ok(5),  // ebp
+            "🟠" => Ok(7), // edi
             _ => Err(Box::new(CompileError {
                 msg: format!("{} is not a valid register", token.value),
             })),
@@ -479,6 +480,27 @@ impl<'a> Instruction for InstructionInterrupt<'a> {
         Ok(vec![
             IntermediateCode::Byte(0xcd),
             IntermediateCode::Byte(self.operand.value.parse::<u8>()?),
+        ])
+    }
+}
+
+struct InstructionSyscall<'a> {
+    operation: &'a Token,
+}
+
+impl<'a> Instruction for InstructionSyscall<'a> {
+    fn validate(&self) -> Result<(), Box<dyn error::Error>> {
+        self.validate_tokens(
+            vec![vec![TokenType::Syscall].into_iter().collect::<HashSet<_>>()],
+            vec![&self.operation],
+        )
+    }
+
+    fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
+        self.validate()?;
+        Ok(vec![
+            IntermediateCode::Byte(0x0f),
+            IntermediateCode::Byte(0x05),
         ])
     }
 }
@@ -1533,6 +1555,23 @@ mod test_instructions {
     }
 
     #[test]
+    fn test_syscall_mac() {
+        let operation = Token {
+            t: Some(TokenType::Syscall),
+            value: "⚡".to_string(),
+        };
+        let instruction = InstructionSyscall {
+            operation: &operation,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[IntermediateCode::Byte(0x0f), IntermediateCode::Byte(0x05),],
+            &bytes
+        ));
+    }
+
+    #[test]
     fn test_push_immediate_validate() {
         let operation = Token {
             t: Some(TokenType::Push),
@@ -1608,6 +1647,9 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<dyn erro
             Some(TokenType::Interrupt) => Some(Box::new(InstructionInterrupt {
                 operation: &tokens[0],
                 operand: &tokens[1],
+            })),
+            Some(TokenType::Syscall) => Some(Box::new(InstructionSyscall {
+                operation: &tokens[0],
             })),
             Some(TokenType::Add) | Some(TokenType::Subtract) => {
                 Some(Box::new(InstructionAddSubtract {

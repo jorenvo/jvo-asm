@@ -56,7 +56,10 @@ fn tokenize_word(word: &str) -> Result<Token, Box<dyn error::Error>> {
         "❗" => {
             token.t = Some(TokenType::Interrupt);
         }
-        "⚪" | "🔴" | "🔵" | "⚫" | "◀" | "⬇" => {
+        "⚡" => {
+            token.t = Some(TokenType::Syscall)
+        }
+        "⚪" | "🔴" | "🔵" | "⚫" | "🟠" | "◀" | "⬇" => {
             token.t = Some(TokenType::Register);
         }
         "🦘=" => {
@@ -267,6 +270,13 @@ mod test_tokenize {
         assert_eq!(tokens[0].t, Some(TokenType::Call));
         assert_eq!(tokens[1].t, Some(TokenType::Memory));
         assert_eq!(tokens[1].value, "123");
+    }
+
+    #[test]
+    fn test_syscall() {
+        let tokens = tokenize("⚡").unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].t, Some(TokenType::Syscall));
     }
 
     #[test]

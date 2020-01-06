@@ -35,6 +35,7 @@ pub enum TokenType {
     Return,
     Compare,
     Interrupt,
+    Syscall,
     Label,
     LabelReference,
     Constant,
