@@ -174,24 +174,30 @@ impl Executable for MachO {
         }
 
         let code_segment_cmd = self.create_segment_command(
-            temp_data_bytes.len() as u32,
+            0x1000, // todo should pad to this, temp_data_bytes.len() as u32,
             "__TEXT", // todo temp_data_name.as_str(),
             DATA_SECTION_VIRTUAL_START_64,
-            executable.len() as u64,
+            0, // executable.len() as u64, todo
             1,
         );
 
         executable.extend_from_slice(&code_segment_cmd);
 
+        let from_end: u32 = 0x1000 - data_section_size as u32;
         let code_section = self.create_section(
             "__text", // todo temp_data_name.as_str(),
             "__TEXT",  // todo
-            DATA_SECTION_VIRTUAL_START_64,
+            DATA_SECTION_VIRTUAL_START_64 + from_end as u64,
             data_section_size as u64,
-            executable.len() as u32 + 80,  // todo 80 is the size of a section
+            from_end, // todo this should be based on the padded vmsize
         );
 
         executable.extend_from_slice(&code_section);
+
+        while executable.len() + data_section_size < 0x1000 {
+            executable.push(0x00);
+        }
+
         executable.extend_from_slice(&temp_data_bytes);
         file.write_all(&executable)?;
 
