@@ -76,5 +76,6 @@ pub enum ExecutableFormat {
 
 pub const DATA_SECTION_PHYSICAL_START: u32 = 0x1000;
 pub const CODE_SECTION_NAME: &str = ".code";
-pub const DATA_SECTION_VIRTUAL_START: u32 = 0x0804_9000;
+pub const DATA_SECTION_VIRTUAL_START_32: u32 = 0x0804_9000;
+pub const DATA_SECTION_VIRTUAL_START_64: u64 = 0x0000000100000000;
 pub const PAGE_SIZE: u32 = 0x1000;

@@ -27,6 +27,9 @@ pub struct MachO {}
 
 impl MachO {
     pub fn create_header(&mut self, ncmds: u32, sizeofcmds: u32) -> Vec<u8> {
+        // sizeof header:
+        // 32 bytes
+
         const MAGIC: u32 = 0xfeed_facf; // Mach-O Big Endian (64-bit)
         const CPU_ARCH_ABI64: u32 = 0x1000000;
         const CPU_TYPE_I386: u32 = 7;
@@ -37,7 +40,7 @@ impl MachO {
         // TODO: clang also uses TWOLEVEL
         const NOUNDEFS: u32 = 0x1;
         const DYLDLINK: u32 = 0x4;
-        const FLAGS: u32 = NOUNDEFS | DYLDLINK;
+        const FLAGS: u32 = NOUNDEFS; // todo | DYLDLINK;
 
         let mut header: Vec<u8> = vec![];
         header.extend_from_slice(&MAGIC.to_le_bytes());
@@ -60,13 +63,16 @@ impl MachO {
         fileoff: u64,
         nsects: u32,
     ) -> Vec<u8> {
+        // sizeof segment command:
+        // 72 bytes
+
         const CMD: u32 = 0x19; // LC_SEGMENT_64
         let mut command: Vec<u8> = vec![];
 
         command.extend_from_slice(&CMD.to_le_bytes());
 
         const CMD_SIZE: u32 = 72;
-        const SECTION_SIZE: u32 = 80;  // size of section
+        const SECTION_SIZE: u32 = 80;  // size of 64 bit section
         command.extend_from_slice(&(CMD_SIZE + SECTION_SIZE * nsects).to_le_bytes()); // cmdsize
 
         command.extend_from_slice(format!("{:\0<16}", segname).as_bytes()); // segname, 16 bytes
@@ -74,20 +80,30 @@ impl MachO {
 
         // pagezero is empty
         if section_size == 0 {
-            command.extend_from_slice(&(0x1000 as u64).to_le_bytes()); // vmsize, should be the same as filesize
+            command.extend_from_slice(&(0x100000000 as u64).to_le_bytes()); // vmsize, should be the same as filesize
         } else {
             command.extend_from_slice(&(section_size as u64).to_le_bytes()); // vmsize, should be the same as filesize
         }
 
         command.extend_from_slice(&fileoff.to_le_bytes()); // fileoff, offset in file to map
         command.extend_from_slice(&(section_size as u64).to_le_bytes()); // filesize
-        command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo maxprot
-        command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo initprot
+
+        // todo
+        if section_size == 0 {
+            command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // maxprot
+            command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // initprot
+        } else {
+            const VM_PROT_READ: u32 = 0x01;
+            const VM_PROT_EXECUTE: u32 = 0x04;
+
+            dbg!(VM_PROT_READ | VM_PROT_EXECUTE);
+            command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes()); // todo maxprot
+            command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes()); // todo initprot
+        }
+
         command.extend_from_slice(&nsects.to_le_bytes()); // nsects
 
-        const VM_PROT_READ: u32 = 0x01;
-        const VM_PROT_EXECUTE: u32 = 0x04;
-        command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes()); // todo flags
+        command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo flags
 
         command
     }
@@ -100,6 +116,8 @@ impl MachO {
         size: u64,
         fileoff: u32,
     ) -> Vec<u8> {
+        // sizeof section:
+        // 80 bytes
         let mut section: Vec<u8> = vec![];
 
         section.extend_from_slice(format!("{:\0<16}", sectname).as_bytes()); // sectname, 16 bytes
@@ -111,11 +129,14 @@ impl MachO {
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // todo reloff
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // todo nreloc
 
-        const INSTRUCTIONS_FLAG: u32 = 0x80000000; // S_ATTR_PURE_INSTRUCTIONS
+        const S_ATTR_PURE_INSTRUCTIONS: u32 = 0x80000000;
+        const S_ATTR_SOME_INSTRUCTIONS: u32 = 0x00000400;
+        const INSTRUCTIONS_FLAG: u32 = S_ATTR_PURE_INSTRUCTIONS | S_ATTR_SOME_INSTRUCTIONS;
         // const FOUR_BYTE_LITERALS: u32 = 0x3; // todo S_4BYTE_LITERALS
         section.extend_from_slice(&INSTRUCTIONS_FLAG.to_le_bytes()); // flags
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // reserved1
         section.extend_from_slice(&(0 as u32).to_le_bytes()); // reserved2
+        section.extend_from_slice(&(0 as u32).to_le_bytes()); // reserved3
 
         section
     }
@@ -136,7 +157,7 @@ impl Executable for MachO {
         let ncommands = 2;
         let header = self.create_header(
             2,
-            ncommands * 72, // todo dedupl load command size
+            ncommands * 72 + 80, // todo dedupl load command size
         );
 
         let zeropage_segment_cmd = self.create_segment_command(0, "__PAGEZERO", 0, 0, 0);
@@ -155,7 +176,7 @@ impl Executable for MachO {
         let code_segment_cmd = self.create_segment_command(
             temp_data_bytes.len() as u32,
             "__TEXT", // todo temp_data_name.as_str(),
-            DATA_SECTION_VIRTUAL_START as u64,
+            DATA_SECTION_VIRTUAL_START_64,
             executable.len() as u64,
             1,
         );
@@ -165,9 +186,9 @@ impl Executable for MachO {
         let code_section = self.create_section(
             "__text", // todo temp_data_name.as_str(),
             "__TEXT",  // todo
-            DATA_SECTION_VIRTUAL_START as u64,
+            DATA_SECTION_VIRTUAL_START_64,
             data_section_size as u64,
-            executable.len() as u32 + 76,  // todo 76 is the size of a section
+            executable.len() as u32 + 80,  // todo 80 is the size of a section
         );
 
         executable.extend_from_slice(&code_section);
@@ -274,7 +295,7 @@ impl ELF {
             0x00, SHT_NULL, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ));
 
-        let mut next_section_virtual_start = DATA_SECTION_VIRTUAL_START;
+        let mut next_section_virtual_start = DATA_SECTION_VIRTUAL_START_32;
         let mut next_section_physical_start = DATA_SECTION_PHYSICAL_START;
         for (index, size) in data_section_sizes.iter().enumerate() {
             section_header.append(&mut self.create_section_header_entry(
@@ -388,12 +409,12 @@ impl ELF {
         let mut program_header = self.create_program_header_entry(
             program_size,
             DATA_SECTION_PHYSICAL_START + PAGE_SIZE * data_section_sizes.len() as u32, // TODO this assumes data sections are 4KB
-            DATA_SECTION_VIRTUAL_START + PAGE_SIZE * data_section_sizes.len() as u32, // TODO this assumes data sections are 4KB
+            DATA_SECTION_VIRTUAL_START_32 + PAGE_SIZE * data_section_sizes.len() as u32, // TODO this assumes data sections are 4KB
             PF_X_R,
         );
 
         let mut physical_address = DATA_SECTION_PHYSICAL_START;
-        let mut virtual_address = DATA_SECTION_VIRTUAL_START;
+        let mut virtual_address = DATA_SECTION_VIRTUAL_START_32;
         const PF_R_W: u32 = (1 << 2) | (1 << 1);
         for size in data_section_sizes.iter() {
             program_header.append(&mut self.create_program_header_entry(
@@ -455,7 +476,7 @@ impl ELF {
         // -3 because string table appears in the first page and null delimiter
         // and code don't offset the virtual entry point
         header.extend_from_slice(
-            &(DATA_SECTION_VIRTUAL_START + (number_of_sections - 3) * PAGE_SIZE).to_le_bytes(),
+            &(DATA_SECTION_VIRTUAL_START_32 + (number_of_sections - 3) * PAGE_SIZE).to_le_bytes(),
         );
 
         // Start of program header table (immediately after this header)

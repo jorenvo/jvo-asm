@@ -87,7 +87,7 @@ fn process(filename: &str) -> Result<Vec<DataSection>, Box<dyn error::Error>> {
                 // address these constants will be replaced by.
                 let virtual_address = Token {
                     t: Some(TokenType::Value),
-                    value: (DATA_SECTION_VIRTUAL_START as usize + data_section_size).to_string(),
+                    value: (DATA_SECTION_VIRTUAL_START_32 as usize + data_section_size).to_string(),
                 };
                 let section_name = &tokens[0].value;
                 constants.insert(section_name.clone(), virtual_address);
