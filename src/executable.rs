@@ -37,10 +37,8 @@ impl MachO {
         const CPU_SUBTYPE: u32 = 3; // ALL
         const FILETYPE: u32 = 2; // EXECUTE
 
-        // TODO: clang also uses TWOLEVEL
         const NOUNDEFS: u32 = 0x1;
-        const DYLDLINK: u32 = 0x4;
-        const FLAGS: u32 = NOUNDEFS; // todo | DYLDLINK;
+        const FLAGS: u32 = NOUNDEFS;
 
         let mut header: Vec<u8> = vec![];
         header.extend_from_slice(&MAGIC.to_le_bytes());
@@ -198,11 +196,6 @@ impl Executable for MachO {
         data_sections: Vec<DataSection>,
         mut file: fs::File,
     ) -> std::io::Result<()> {
-        for section in &data_sections {
-            dbg!(&section.name);
-            println!("{:x?}", section.bytes);
-        }
-
         let mut commands: Vec<Vec<u8>> = vec![];
         let zeropage_segment_cmd = self.create_segment_command(0, "__PAGEZERO", 0, 0, 0);
 
@@ -259,6 +252,19 @@ impl Executable for MachO {
         file.write_all(&executable)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_mach_o {
+    use super::*;
+
+    #[test]
+    fn test_mach_o_lengths() {
+        let mut mach_o = MachO {};
+        assert_eq!(mach_o.create_header(0, 0).len(), 32);
+        assert_eq!(mach_o.create_segment_command(0, "test", 0, 0, 0).len(), 72);
+        assert_eq!(mach_o.create_thread_command(0).len(), 4 * 4 + 21 * 8);
     }
 }
 
