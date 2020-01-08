@@ -72,7 +72,7 @@ impl MachO {
         command.extend_from_slice(&CMD.to_le_bytes());
 
         const CMD_SIZE: u32 = 72;
-        const SECTION_SIZE: u32 = 80;  // size of 64 bit section
+        const SECTION_SIZE: u32 = 80; // size of 64 bit section
         command.extend_from_slice(&(CMD_SIZE + SECTION_SIZE * nsects).to_le_bytes()); // cmdsize
 
         command.extend_from_slice(format!("{:\0<16}", segname).as_bytes()); // segname, 16 bytes
@@ -98,12 +98,62 @@ impl MachO {
 
             dbg!(VM_PROT_READ | VM_PROT_EXECUTE);
             command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes()); // todo maxprot
-            command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes()); // todo initprot
+            command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes());
+            // todo initprot
         }
 
         command.extend_from_slice(&nsects.to_le_bytes()); // nsects
 
         command.extend_from_slice(&(0x00 as u32).to_le_bytes()); // todo flags
+
+        command
+    }
+
+    pub fn create_thread_command(&mut self, rip: u64) -> Vec<u8> {
+        let mut command: Vec<u8> = vec![];
+        const LC_UNIXTHREAD: u32 = 0x5;
+
+        command.extend_from_slice(&LC_UNIXTHREAD.to_le_bytes()); // cmd
+
+        const SIZE_THREAD_COMMAND: u32 = 4 * 4 + 21 * 8;
+        command.extend_from_slice(&SIZE_THREAD_COMMAND.to_le_bytes()); // todo size
+
+        const X86_THREAD_STATE64: u32 = 0x4;
+        command.extend_from_slice(&X86_THREAD_STATE64.to_le_bytes()); // flavor
+
+        const NUM_REGISTERS: u32 = 21;
+        command.extend_from_slice(&(NUM_REGISTERS * 8 / 4).to_le_bytes()); // count
+
+        // rax
+        // rbx
+        // rcx
+        // rdx
+        // rdi
+        // rsi
+        // rbp
+        // rsp
+        // r8
+        // r9
+        // r10
+        // r11
+        // r12
+        // r13
+        // r14
+        // r15
+        for _ in 0..16 {
+            command.extend_from_slice(&(0x00 as u64).to_le_bytes());
+        }
+
+        // rip
+        command.extend_from_slice(&rip.to_le_bytes());
+
+        // rflags
+        // cs
+        // fs
+        // gs
+        for _ in 0..4 {
+            command.extend_from_slice(&(0x00 as u64).to_le_bytes());
+        }
 
         command
     }
@@ -153,46 +203,53 @@ impl Executable for MachO {
             println!("{:x?}", section.bytes);
         }
 
-        let mut executable: Vec<u8> = vec![];
-        let ncommands = 2;
-        let header = self.create_header(
-            2,
-            ncommands * 72 + 80, // todo dedupl load command size
-        );
-
+        let mut commands: Vec<Vec<u8>> = vec![];
         let zeropage_segment_cmd = self.create_segment_command(0, "__PAGEZERO", 0, 0, 0);
 
-        executable.extend_from_slice(&header);
-        executable.extend_from_slice(&zeropage_segment_cmd);
+        commands.push(zeropage_segment_cmd);
 
         let data_section_size = data_sections[0].bytes.len();
         let mut temp_data_bytes = data_sections[0].bytes.clone();
 
-        // pad to a multiple of 8 
+        // pad to a multiple of 8
         while temp_data_bytes.len() % 8 != 0 {
             temp_data_bytes.push(0);
         }
 
-        let code_segment_cmd = self.create_segment_command(
-            0x1000, // todo should pad to this, temp_data_bytes.len() as u32,
+        let mut code_segment_cmd = self.create_segment_command(
+            0x1000,   // todo should pad to this, temp_data_bytes.len() as u32,
             "__TEXT", // todo temp_data_name.as_str(),
             DATA_SECTION_VIRTUAL_START_64,
             0, // executable.len() as u64, todo
             1,
         );
 
-        executable.extend_from_slice(&code_segment_cmd);
-
         let from_end: u32 = 0x1000 - data_section_size as u32;
+        let vmaddr_code: u64 = DATA_SECTION_VIRTUAL_START_64 + from_end as u64;
         let code_section = self.create_section(
             "__text", // todo temp_data_name.as_str(),
-            "__TEXT",  // todo
-            DATA_SECTION_VIRTUAL_START_64 + from_end as u64,
+            "__TEXT", // todo
+            vmaddr_code,
             data_section_size as u64,
             from_end, // todo this should be based on the padded vmsize
         );
 
-        executable.extend_from_slice(&code_section);
+        code_segment_cmd.extend_from_slice(&code_section);
+        commands.push(code_segment_cmd);
+
+        let thread_cmd = self.create_thread_command(vmaddr_code);
+        commands.push(thread_cmd);
+
+        let mut executable: Vec<u8> = vec![];
+        let header = self.create_header(
+            commands.len() as u32,
+            commands.iter().fold(0, |acc, command| acc + command.len() as u32),
+        );
+
+        executable.extend_from_slice(&header);
+        for command in commands {
+            executable.extend_from_slice(&command);
+        }
 
         while executable.len() + data_section_size < 0x1000 {
             executable.push(0x00);
