@@ -94,7 +94,6 @@ impl MachO {
             const VM_PROT_READ: u32 = 0x01;
             const VM_PROT_EXECUTE: u32 = 0x04;
 
-            dbg!(VM_PROT_READ | VM_PROT_EXECUTE);
             command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes()); // todo maxprot
             command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes()); // todo initprot
         }

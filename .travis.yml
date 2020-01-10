@@ -12,4 +12,5 @@ matrix:
   fast_finish: true
 script:
   - cargo test --verbose
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then ./tests/acceptance-tests.sh ; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then ./tests/acceptance_tests_linux.sh ; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ./tests/acceptance_tests_osx.sh ; fi

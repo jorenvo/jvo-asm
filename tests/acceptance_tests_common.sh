@@ -14,10 +14,11 @@ fail () {
 }
 
 compile_and_compare_stdout () {
-    SRC="${1}"
-    EXPECTED="${2}"
+    EXEC_FORMAT="${1}"
+    SRC="${2}"
+    EXPECTED="${3}"
 
-    target/debug/jvo-asm "${SRC}"
+    target/debug/jvo-asm "${EXEC_FORMAT}" "${SRC}"
 
     # the binary is allowed to return non-zero without stopping the tests
     set +e
@@ -30,10 +31,11 @@ compile_and_compare_stdout () {
 }
 
 compile_and_compare_return () {
-    SRC="${1}"
-    EXPECTED="${2}"
+    EXEC_FORMAT="${1}"
+    SRC="${2}"
+    EXPECTED="${3}"
 
-    target/debug/jvo-asm "${SRC}"
+    target/debug/jvo-asm "${EXEC_FORMAT}" "${SRC}"
 
     # the binary is allowed to return non-zero without stopping the tests
     set +e
@@ -47,11 +49,3 @@ compile_and_compare_return () {
 }
 
 cargo build
-compile_and_compare_stdout 'examples/print.jas' 'hi!'
-compile_and_compare_return 'examples/base_ptr_addressing.jas' '4'
-compile_and_compare_return 'examples/multiple_data_sections.jas' '6'
-compile_and_compare_return 'examples/find_max.jas' '222'
-compile_and_compare_return 'examples/square.jas' '49'
-compile_and_compare_return 'examples/factorial.jas' '120'
-
-exit $FAILED
