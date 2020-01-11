@@ -200,22 +200,22 @@ impl Executable for MachO {
         commands.push(zeropage_segment_cmd);
 
         let data_section_size = data_sections[0].bytes.len();
-        let mut temp_data_bytes = data_sections[0].bytes.clone();
+        let mut padded_data_bytes = data_sections[0].bytes.clone();
 
         // pad to a multiple of 8
-        while temp_data_bytes.len() % 8 != 0 {
-            temp_data_bytes.push(0);
+        while padded_data_bytes.len() % 0x1000 != 0 {
+            padded_data_bytes.push(0);
         }
 
         let mut code_segment_cmd = self.create_segment_command(
-            0x1000,   // todo should pad to this, temp_data_bytes.len() as u32,
+            padded_data_bytes.len() as u32,
             "__TEXT", // todo temp_data_name.as_str(),
             DATA_SECTION_VIRTUAL_START_64,
             0, // executable.len() as u64, todo
             1,
         );
 
-        let from_end: u32 = 0x1000 - data_section_size as u32;
+        let from_end: u32 = padded_data_bytes.len() as u32 - data_section_size as u32;
         let vmaddr_code: u64 = DATA_SECTION_VIRTUAL_START_64 + from_end as u64;
         let code_section = self.create_section(
             "__text", // todo temp_data_name.as_str(),
@@ -246,7 +246,7 @@ impl Executable for MachO {
             executable.push(0x00);
         }
 
-        executable.extend_from_slice(&temp_data_bytes);
+        executable.extend_from_slice(&padded_data_bytes);
         file.write_all(&executable)?;
 
         Ok(())
