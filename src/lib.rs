@@ -23,6 +23,7 @@ use config::*;
 use executable::{Executable, ELF, MachO};
 use std::collections::HashMap;
 use std::{error, fs};
+use std::os::unix::fs::PermissionsExt;
 use tokenizer::*;
 
 fn process(filename: &str) -> Result<Vec<DataSection>, Box<dyn error::Error>> {
@@ -183,6 +184,8 @@ pub fn run(config: Config) -> std::io::Result<()> {
     let data_sections = process(&config.filename).unwrap();
 
     let file = fs::File::create("a.out")?;
+    file.set_permissions(PermissionsExt::from_mode(0o755))?;
+
     match config.exec_format {
         common::ExecutableFormat::ELF => {
             let mut elf: ELF = ELF {};

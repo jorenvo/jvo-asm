@@ -14,7 +14,6 @@
 use common::*;
 use std::fs;
 use std::io::Write;
-use std::os::unix::fs::PermissionsExt;
 
 const STRTABLE_PHYSICAL_ENTRY_POINT: u32 = 0x400;
 const STRTAB_SECTION_NAME: &str = ".shstrtab";
@@ -642,7 +641,6 @@ impl Executable for ELF {
             &data_section_names,
             string_table.len() as u32,
         );
-        file.set_permissions(PermissionsExt::from_mode(0o755))?;
 
         file.write_all(&elf_header)?;
         file.write_all(&program_header)?;
