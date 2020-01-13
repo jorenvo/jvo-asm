@@ -94,7 +94,8 @@ impl MachO {
             const VM_PROT_EXECUTE: u32 = 0x04;
 
             command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes()); // todo maxprot
-            command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes()); // todo initprot
+            command.extend_from_slice(&(VM_PROT_READ | VM_PROT_EXECUTE).to_le_bytes());
+            // todo initprot
         }
 
         command.extend_from_slice(&nsects.to_le_bytes()); // nsects
@@ -198,42 +199,72 @@ impl Executable for MachO {
 
         commands.push(zeropage_segment_cmd);
 
-        let data_section_size = data_sections[0].bytes.len();
-        let mut padded_data_bytes = data_sections[0].bytes.clone();
+        // let mut padded_data_bytes = data_sections.iter().fold(vec![], |mut acc, sect| {
+        //     acc.extend(&sect.bytes);
+        //     acc
+        // });
+        // let data_section_size = padded_data_bytes.len();
 
         // pad to a multiple of 8
-        while padded_data_bytes.len() % 0x1000 != 0 {
-            padded_data_bytes.push(0);
+        // while padded_data_bytes.len() % 0x1000 != 0 {
+        //     padded_data_bytes.push(0);
+        // }
+
+        let data_size: u32 = data_sections
+            .iter()
+            .fold(0, |acc, section| acc + section.bytes.len() as u32);
+        let mut padded_data_size = data_size;
+        if padded_data_size % 0x1000 != 0 {
+            padded_data_size += 0x1000 - (padded_data_size % 0x1000)
         }
 
+        const SEGMENT_NAME: &str = "__TEXT";
         let mut code_segment_cmd = self.create_segment_command(
-            padded_data_bytes.len() as u32,
-            "__TEXT", // todo temp_data_name.as_str(),
+            padded_data_size + 0x1000,
+            SEGMENT_NAME,
             DATA_SECTION_VIRTUAL_START_64,
             0, // executable.len() as u64, todo
-            1,
+            data_sections.len() as u32,
         );
 
-        let from_end: u32 = padded_data_bytes.len() as u32 - data_section_size as u32;
-        let vmaddr_code: u64 = DATA_SECTION_VIRTUAL_START_64 + from_end as u64;
-        let code_section = self.create_section(
-            "__text", // todo temp_data_name.as_str(),
-            "__TEXT", // todo
-            vmaddr_code,
-            data_section_size as u64,
-            from_end, // todo this should be based on the padded vmsize
-        );
+        const PHYSICAL_DATA_START: u32 = 0x1000;
+        let mut entry_vmaddr = 0;
+        let mut vmaddr_offset: u32 = PHYSICAL_DATA_START;
+        for data_section in &data_sections {
+            let vmaddr_code: u64 = DATA_SECTION_VIRTUAL_START_64 + 0x1000;
 
-        code_segment_cmd.extend_from_slice(&code_section);
+            let section_name = if data_section.name == CODE_SECTION_NAME {
+                entry_vmaddr = vmaddr_code;
+                "__text"
+            } else {
+                &data_section.name
+            };
+            
+            dbg!(vmaddr_code);
+            dbg!(vmaddr_offset);
+            let code_section = self.create_section(
+                section_name,
+                SEGMENT_NAME,
+                vmaddr_code,
+                data_section.bytes.len() as u64,
+                vmaddr_offset as u32, // todo this should be based on the padded vmsize
+            );
+
+            code_segment_cmd.extend_from_slice(&code_section);
+            vmaddr_offset += data_section.bytes.len() as u32;
+        }
+
         commands.push(code_segment_cmd);
 
-        let thread_cmd = self.create_thread_command(vmaddr_code);
+        let thread_cmd = self.create_thread_command(entry_vmaddr);
         commands.push(thread_cmd);
 
         let mut executable: Vec<u8> = vec![];
         let header = self.create_header(
             commands.len() as u32,
-            commands.iter().fold(0, |acc, command| acc + command.len() as u32),
+            commands
+                .iter()
+                .fold(0, |acc, command| acc + command.len() as u32),
         );
 
         executable.extend_from_slice(&header);
@@ -241,13 +272,20 @@ impl Executable for MachO {
             executable.extend_from_slice(&command);
         }
 
-        while executable.len() + data_section_size < 0x1000 {
+        while executable.len() < PHYSICAL_DATA_START as usize {
             executable.push(0x00);
         }
 
-        executable.extend_from_slice(&padded_data_bytes);
-        file.write_all(&executable)?;
+        // executable.extend_from_slice(&padded_data_bytes);
+        for data_section in &data_sections {
+            executable.extend_from_slice(&data_section.bytes);
+        }
 
+        while executable.len() % 0x1000 != 0 {
+            executable.push(0x00);
+        }
+
+        file.write_all(&executable)?;
         Ok(())
     }
 }
