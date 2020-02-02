@@ -181,8 +181,6 @@ fn process(filename: &str, data_section_virtual_start: u64) -> Result<Vec<DataSe
 pub fn run(config: Config) -> std::io::Result<()> {
     println!("compile {}", config.filename);
 
-    let data_sections = process(&config.filename).unwrap();
-
     let file = fs::File::create("a.out")?;
     file.set_permissions(PermissionsExt::from_mode(0o755))?;
 
