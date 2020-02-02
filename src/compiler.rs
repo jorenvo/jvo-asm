@@ -155,14 +155,14 @@ impl<'a> Instruction for InstructionMove<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
         // p 1161
         match self.operand.t {
             Some(TokenType::Value) => {
                 let mut opcode = 0xb8;
                 // register is specified in 3 LSb's
-                opcode |= self.get_reg_value(self.register)?;
-                let value = self.operand.value.parse::<u32>()?.to_le_bytes();
+                opcode |= self.get_reg_value(self.register).unwrap();
+                let value = self.operand.value.parse::<u32>().unwrap().to_le_bytes();
 
                 Ok(vec![
                     IntermediateCode::Byte(opcode),
@@ -175,7 +175,7 @@ impl<'a> Instruction for InstructionMove<'a> {
             Some(TokenType::LabelReference) => {
                 let mut opcode = 0xb8;
                 // register is specified in 3 LSb's
-                opcode |= self.get_reg_value(self.register)?;
+                opcode |= self.get_reg_value(self.register).unwrap();
 
                 Ok(vec![
                     IntermediateCode::Byte(opcode),
@@ -225,7 +225,7 @@ impl<'a> Instruction for InstructionMoveModRM<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
 
         let modrm = self.calc_modrm(
             0b01,
@@ -237,7 +237,7 @@ impl<'a> Instruction for InstructionMoveModRM<'a> {
         Ok(vec![
             IntermediateCode::Byte(0x8b),
             IntermediateCode::Byte(modrm),
-            IntermediateCode::Byte(self.offset.value.parse::<i8>()? as u8), // TODO support 32 bit offsets
+            IntermediateCode::Byte(self.offset.value.parse::<i8>().unwrap() as u8), // TODO support 32 bit offsets
         ])
     }
 }
@@ -267,12 +267,12 @@ impl<'a> Instruction for InstructionAddSubtract<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
 
         // p603
         match self.operand.t {
             Some(TokenType::Value) => {
-                let value = self.operand.value.parse::<u32>()?.to_le_bytes();
+                let value = self.operand.value.parse::<u32>().unwrap().to_le_bytes();
                 let opcode = if let Some(TokenType::Add) = self.operation.t {
                     0x0
                 } else {
@@ -337,7 +337,7 @@ impl<'a> Instruction for InstructionMultiply<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
 
         // p1017
         match self.operand.t {
@@ -349,7 +349,7 @@ impl<'a> Instruction for InstructionMultiply<'a> {
                     self.get_reg_value(&self.register).unwrap(),
                 );
                 // TODO change to i32 when signed integer support is added
-                let value = self.operand.value.parse::<u32>()?.to_le_bytes();
+                let value = self.operand.value.parse::<u32>().unwrap().to_le_bytes();
 
                 Ok(vec![
                     IntermediateCode::Byte(opcode),
@@ -398,7 +398,7 @@ impl<'a> Instruction for InstructionJump<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
         // p 1063
         // p 87 specifying an offset
         Ok(vec![
@@ -427,7 +427,7 @@ impl<'a> Instruction for InstructionCall<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
         // p 694
         // p 87 specifying an offset
         Ok(vec![
@@ -450,7 +450,7 @@ impl<'a> Instruction for InstructionReturn<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
         // p 1675
         Ok(vec![IntermediateCode::Byte(0xc3)])
     }
@@ -475,11 +475,11 @@ impl<'a> Instruction for InstructionInterrupt<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
         // p 1031
         Ok(vec![
             IntermediateCode::Byte(0xcd),
-            IntermediateCode::Byte(self.operand.value.parse::<u8>()?),
+            IntermediateCode::Byte(self.operand.value.parse::<u8>().unwrap()),
         ])
     }
 }
@@ -497,7 +497,7 @@ impl<'a> Instruction for InstructionSyscall<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
         Ok(vec![
             IntermediateCode::Byte(0x0f),
             IntermediateCode::Byte(0x05),
@@ -524,12 +524,12 @@ impl<'a> Instruction for InstructionPush<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
 
         // p 1633
         match self.operand.t {
             Some(TokenType::Value) => {
-                let value = self.operand.value.parse::<u32>()?.to_le_bytes();
+                let value = self.operand.value.parse::<u32>().unwrap().to_le_bytes();
                 Ok(vec![
                     IntermediateCode::Byte(0x68),
                     IntermediateCode::Byte(value[0]),
@@ -570,7 +570,7 @@ impl<'a> Instruction for InstructionPushModRM<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
 
         let opcode = 0xff;
 
@@ -586,7 +586,7 @@ impl<'a> Instruction for InstructionPushModRM<'a> {
         Ok(vec![
             IntermediateCode::Byte(opcode),
             IntermediateCode::Byte(modrm),
-            IntermediateCode::Byte(self.offset.value.parse::<i8>()? as u8), // TODO support 32 bit offsets
+            IntermediateCode::Byte(self.offset.value.parse::<i8>().unwrap() as u8), // TODO support 32 bit offsets
         ])
     }
 }
@@ -610,7 +610,7 @@ impl<'a> Instruction for InstructionPop<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
 
         // p 1633
         let opcode = 0x58 | self.get_reg_value(&self.operand).unwrap();
@@ -641,7 +641,7 @@ impl<'a> Instruction for InstructionCompare<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
 
         // p 725
         // Contrary to convention the order of these operands is more
@@ -675,7 +675,7 @@ impl<'a> Instruction for InstructionCompare<'a> {
                 Ok(vec![
                     IntermediateCode::Byte(opcode),
                     IntermediateCode::Byte(modrm),
-                    IntermediateCode::Byte(self.right_operand.value.parse::<i8>()? as u8), // TODO support 32 bit
+                    IntermediateCode::Byte(self.right_operand.value.parse::<i8>().unwrap() as u8), // TODO support 32 bit
                 ])
             }
         }
@@ -710,7 +710,7 @@ impl<'a> Instruction for InstructionJumpIf<'a> {
     }
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
-        self.validate()?;
+        self.validate().unwrap();
 
         // p 1058
         // Only supports near (32 bit) jumps
@@ -1639,7 +1639,7 @@ mod test_instructions {
     }
 }
 
-pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
+pub fn compile(tokens: Vec<Token>) -> Vec<IntermediateCode> {
     let mut operation: Option<Box<dyn Instruction>> = None;
 
     for token in tokens.iter() {
@@ -1732,14 +1732,12 @@ pub fn compile(tokens: Vec<Token>) -> Result<Vec<IntermediateCode>, Box<dyn erro
 
     if operation.is_some() {
         let operation = operation.unwrap();
-        operation.compile()
+        operation.compile().unwrap()
     } else {
-        Err(Box::new(CompileError {
-            msg: format!(
-                "Grammatical error: {}, expected instruction",
-                tokens.iter().fold("".to_string(), |acc, t| acc.to_owned()
-                    + &format!(" {}", t.value))
-            ),
-        }))
+        panic!(format!(
+            "Grammatical error: {}, expected instruction",
+            tokens.iter().fold("".to_string(), |acc, t| acc.to_owned()
+                + &format!(" {}", t.value))
+        ));
     }
 }

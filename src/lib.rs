@@ -22,11 +22,11 @@ use compiler::*;
 use config::*;
 use executable::{Executable, ELF, MachO};
 use std::collections::HashMap;
-use std::{error, fs};
+use std::{fs, io};
 use std::os::unix::fs::PermissionsExt;
 use tokenizer::*;
 
-fn process(filename: &str) -> Result<Vec<DataSection>, Box<dyn error::Error>> {
+fn process(filename: &str, data_section_virtual_start: u64) -> Result<Vec<DataSection>, io::Error> {
     let content = fs::read_to_string(filename)?;
 
     // Contains a section for the executable code and other data
@@ -64,7 +64,7 @@ fn process(filename: &str) -> Result<Vec<DataSection>, Box<dyn error::Error>> {
     let mut intermediate_index_instruction_offset = HashMap::new();
 
     for line in content.split('\n') {
-        let mut tokens = tokenize(line)?;
+        let mut tokens = tokenize(line).unwrap();
         // Line was a comment.
         if tokens.is_empty() {
             continue;
@@ -100,7 +100,7 @@ fn process(filename: &str) -> Result<Vec<DataSection>, Box<dyn error::Error>> {
                         // In data sections 32 bit values are tokenized as
                         // Memory (no preceding $).
                         Some(TokenType::Memory) => section_data
-                            .extend_from_slice(&token.value.parse::<i32>()?.to_le_bytes()),
+                            .extend_from_slice(&token.value.parse::<i32>().unwrap().to_le_bytes()),
                         _ => panic!("Unsupported token in data section: {:?}", token),
                     }
                 }
@@ -127,7 +127,7 @@ fn process(filename: &str) -> Result<Vec<DataSection>, Box<dyn error::Error>> {
             })
             .collect();
 
-        let intermediate_instruction = compile(tokens)?;
+        let intermediate_instruction = compile(tokens);
         let mut padded_intermediate_instruction = vec![];
         let mut displacements = vec![];
         for intermediate in intermediate_instruction {
@@ -189,10 +189,12 @@ pub fn run(config: Config) -> std::io::Result<()> {
     match config.exec_format {
         common::ExecutableFormat::ELF => {
             let mut elf: ELF = ELF {};
+            let data_sections = process(&config.filename, elf.get_data_section_virtual_start()).unwrap();
             elf.create(data_sections, file)?;
         },
         common::ExecutableFormat::MachO => {
             let mut mach: MachO = MachO {};
+            let data_sections = process(&config.filename, mach.get_data_section_virtual_start()).unwrap();
             mach.create(data_sections, file)?;
         }
     }
