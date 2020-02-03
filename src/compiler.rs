@@ -162,15 +162,35 @@ impl<'a> Instruction for InstructionMove<'a> {
                 let mut opcode = 0xb8;
                 // register is specified in 3 LSb's
                 opcode |= self.get_reg_value(self.register).unwrap();
-                let value = self.operand.value.parse::<u32>().unwrap().to_le_bytes();
 
-                Ok(vec![
-                    IntermediateCode::Byte(opcode),
-                    IntermediateCode::Byte(value[0]),
-                    IntermediateCode::Byte(value[1]),
-                    IntermediateCode::Byte(value[2]),
-                    IntermediateCode::Byte(value[3]),
-                ])
+                let value = self.operand.value.parse::<u32>();
+                if value.is_ok() {
+                    let value = value.unwrap().to_le_bytes();
+
+                    Ok(vec![
+                        IntermediateCode::Byte(opcode),
+                        IntermediateCode::Byte(value[0]),
+                        IntermediateCode::Byte(value[1]),
+                        IntermediateCode::Byte(value[2]),
+                        IntermediateCode::Byte(value[3]),
+                    ])
+                } else {
+                    let value = self.operand.value.parse::<u64>().unwrap().to_le_bytes();
+                    let rex_w = 0b01001000;
+
+                    Ok(vec![
+                        IntermediateCode::Byte(rex_w),
+                        IntermediateCode::Byte(opcode),
+                        IntermediateCode::Byte(value[0]),
+                        IntermediateCode::Byte(value[1]),
+                        IntermediateCode::Byte(value[2]),
+                        IntermediateCode::Byte(value[3]),
+                        IntermediateCode::Byte(value[4]),
+                        IntermediateCode::Byte(value[5]),
+                        IntermediateCode::Byte(value[6]),
+                        IntermediateCode::Byte(value[7]),
+                    ])
+                }
             }
             Some(TokenType::LabelReference) => {
                 let mut opcode = 0xb8;
@@ -876,6 +896,44 @@ mod test_instructions {
                 IntermediateCode::Byte(0xff),
                 IntermediateCode::Byte(0xff),
                 IntermediateCode::Byte(0xff),
+            ],
+            &bytes
+        ));
+    }
+
+    #[test]
+    fn test_move_immediate_64_1() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⚪".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Move),
+            value: "⬅".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "4294967296".to_string(), // 2 ** 32
+        };
+        let instruction = InstructionMove {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0x48),
+                IntermediateCode::Byte(0xb8),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x01),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00)
             ],
             &bytes
         ));

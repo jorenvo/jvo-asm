@@ -88,7 +88,7 @@ fn process(filename: &str, data_section_virtual_start: u64) -> Result<Vec<DataSe
                 // address these constants will be replaced by.
                 let virtual_address = Token {
                     t: Some(TokenType::Value),
-                    value: (DATA_SECTION_VIRTUAL_START_32 as usize + data_section_size).to_string(),
+                    value: (data_section_virtual_start + data_section_size as u64).to_string(),
                 };
                 let section_name = &tokens[0].value;
                 constants.insert(section_name.clone(), virtual_address);
@@ -160,6 +160,7 @@ fn process(filename: &str, data_section_virtual_start: u64) -> Result<Vec<DataSe
                     let instruction_end =
                         i as i32 + intermediate_index_instruction_offset[&i] as i32;
                     let displacement = *target_i as i32 - instruction_end;
+                    dbg!(displacement, s);
                     let mut v = Vec::new();
                     v.extend_from_slice(&displacement.to_le_bytes());
                     v

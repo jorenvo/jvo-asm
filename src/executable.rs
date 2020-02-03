@@ -19,6 +19,7 @@ const STRTABLE_PHYSICAL_ENTRY_POINT: u32 = 0x400;
 const STRTAB_SECTION_NAME: &str = ".shstrtab";
 
 pub trait Executable {
+    fn get_data_section_virtual_start(&self) -> u64;
     fn create(&mut self, data_sections: Vec<DataSection>, file: fs::File) -> std::io::Result<()>;
 }
 
@@ -189,6 +190,10 @@ impl MachO {
 }
 
 impl Executable for MachO {
+    fn get_data_section_virtual_start(&self) -> u64 {
+        DATA_SECTION_VIRTUAL_START_64 + 0x1000
+    }
+
     fn create(
         &mut self,
         data_sections: Vec<DataSection>,
@@ -230,9 +235,8 @@ impl Executable for MachO {
         const PHYSICAL_DATA_START: u32 = 0x1000;
         let mut entry_vmaddr = 0;
         let mut vmaddr_offset: u32 = PHYSICAL_DATA_START;
+        let mut vmaddr_code = self.get_data_section_virtual_start();
         for data_section in &data_sections {
-            let vmaddr_code: u64 = DATA_SECTION_VIRTUAL_START_64 + 0x1000;
-
             let section_name = if data_section.name == CODE_SECTION_NAME {
                 entry_vmaddr = vmaddr_code;
                 "__text"
@@ -252,6 +256,7 @@ impl Executable for MachO {
 
             code_segment_cmd.extend_from_slice(&code_section);
             vmaddr_offset += data_section.bytes.len() as u32;
+            vmaddr_code += data_section.bytes.len() as u64;
         }
 
         commands.push(code_segment_cmd);
@@ -276,7 +281,6 @@ impl Executable for MachO {
             executable.push(0x00);
         }
 
-        // executable.extend_from_slice(&padded_data_bytes);
         for data_section in &data_sections {
             executable.extend_from_slice(&data_section.bytes);
         }
@@ -647,6 +651,10 @@ mod test_elf {
 }
 
 impl Executable for ELF {
+    fn get_data_section_virtual_start(&self) -> u64 {
+        DATA_SECTION_VIRTUAL_START_32 as u64
+    }
+
     fn create(
         &mut self,
         mut data_sections: Vec<DataSection>,

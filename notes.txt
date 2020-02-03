@@ -6,3 +6,8 @@ https://opensource.apple.com/source/xnu/xnu-792/EXTERNAL_HEADERS/mach-o/loader.h
 - otool -tV -j a.out doesn't detect any instructions
   - in header we use 5 instead of 1
   - ld does a fileoff of 0 
+
+TODO
+Be careful with using the ? operator. The original backtrace is lost, so it should only be used for errors where we don't need the backtrace (e.g. syntax errors in the asm) or errors we can recover from. For all other errors (e.g. casting to i32 just unwrap()).
+
+p512 rex
