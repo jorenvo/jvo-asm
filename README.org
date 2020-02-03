@@ -170,6 +170,7 @@ allow for linking a correct section header is also generated.
 | 🔴       | =%ebx= |
 | 🔵       | =%ecx= |
 | ⚫       | =%edx= |
+| 🟠       | =%edi= |
 | ◀        | =%esp= |
 | ⬇        | =%ebp= |
 |----------+--------|
