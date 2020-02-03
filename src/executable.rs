@@ -204,31 +204,15 @@ impl Executable for MachO {
 
         commands.push(zeropage_segment_cmd);
 
-        // let mut padded_data_bytes = data_sections.iter().fold(vec![], |mut acc, sect| {
-        //     acc.extend(&sect.bytes);
-        //     acc
-        // });
-        // let data_section_size = padded_data_bytes.len();
-
-        // pad to a multiple of 8
-        // while padded_data_bytes.len() % 0x1000 != 0 {
-        //     padded_data_bytes.push(0);
-        // }
-
-        let data_size: u32 = data_sections
-            .iter()
-            .fold(0, |acc, section| acc + section.bytes.len() as u32);
-        let mut padded_data_size = data_size;
-        if padded_data_size % 0x1000 != 0 {
-            padded_data_size += 0x1000 - (padded_data_size % 0x1000)
-        }
+        const ASSUMED_PAGE_SIZE: u32 = 0x1000; // todo fix the compiler to not assume this
+        let data_size: u32 = ASSUMED_PAGE_SIZE * data_sections.len() as u32;
 
         const SEGMENT_NAME: &str = "__TEXT";
         let mut code_segment_cmd = self.create_segment_command(
-            padded_data_size + 0x1000,
+            data_size + ASSUMED_PAGE_SIZE,
             SEGMENT_NAME,
             DATA_SECTION_VIRTUAL_START_64,
-            0, // executable.len() as u64, todo
+            0,
             data_sections.len() as u32,
         );
 
@@ -244,19 +228,17 @@ impl Executable for MachO {
                 &data_section.name
             };
             
-            dbg!(vmaddr_code);
-            dbg!(vmaddr_offset);
             let code_section = self.create_section(
                 section_name,
                 SEGMENT_NAME,
                 vmaddr_code,
                 data_section.bytes.len() as u64,
-                vmaddr_offset as u32, // todo this should be based on the padded vmsize
+                vmaddr_offset as u32,
             );
 
             code_segment_cmd.extend_from_slice(&code_section);
-            vmaddr_offset += data_section.bytes.len() as u32;
-            vmaddr_code += data_section.bytes.len() as u64;
+            vmaddr_offset += ASSUMED_PAGE_SIZE as u32;
+            vmaddr_code += ASSUMED_PAGE_SIZE as u64;
         }
 
         commands.push(code_segment_cmd);
@@ -283,6 +265,7 @@ impl Executable for MachO {
 
         for data_section in &data_sections {
             executable.extend_from_slice(&data_section.bytes);
+            executable.extend(vec![0; ASSUMED_PAGE_SIZE as usize - data_section.bytes.len()]);
         }
 
         while executable.len() % 0x1000 != 0 {
