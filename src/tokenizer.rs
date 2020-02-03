@@ -53,13 +53,16 @@ fn tokenize_word(word: &str) -> Result<Token, Box<dyn error::Error>> {
         "⬅" => {
             token.t = Some(TokenType::Move);
         }
+        "⏪" => {
+            token.t = Some(TokenType::MoveQuad);
+        }
         "❗" => {
             token.t = Some(TokenType::Interrupt);
         }
         "⚡" => {
             token.t = Some(TokenType::Syscall)
         }
-        "⚪" | "🔴" | "🔵" | "⚫" | "🟠" | "◀" | "⬇" => {
+        "⚪" | "🔴" | "🔵" | "⚫" | "🟣" | "🟠" | "◀" | "⬇" => {
             token.t = Some(TokenType::Register);
         }
         "🦘=" => {

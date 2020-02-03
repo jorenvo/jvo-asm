@@ -54,6 +54,7 @@ trait Instruction {
             "🔴" => Ok(3), // ebx
             "◀" => Ok(4),  // esp
             "⬇" => Ok(5),  // ebp
+            "🟣" => Ok(6), // esi
             "🟠" => Ok(7), // edi
             _ => Err(Box::new(CompileError {
                 msg: format!("{} is not a valid register", token.value),
@@ -132,6 +133,7 @@ struct InstructionMove<'a> {
     register: &'a Token,
     operation: &'a Token,
     operand: &'a Token,
+    quadword: bool,
 }
 
 impl<'a> Instruction for InstructionMove<'a> {
@@ -141,7 +143,9 @@ impl<'a> Instruction for InstructionMove<'a> {
                 vec![TokenType::Register]
                     .into_iter()
                     .collect::<HashSet<_>>(),
-                vec![TokenType::Move].into_iter().collect::<HashSet<_>>(),
+                vec![TokenType::Move, TokenType::MoveQuad]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
                 vec![
                     TokenType::Value,
                     TokenType::Register,
@@ -156,6 +160,8 @@ impl<'a> Instruction for InstructionMove<'a> {
 
     fn compile(&self) -> Result<Vec<IntermediateCode>, Box<dyn error::Error>> {
         self.validate().unwrap();
+        let rex_w = 0b01001000;
+    
         // p 1161
         match self.operand.t {
             Some(TokenType::Value) => {
@@ -164,7 +170,7 @@ impl<'a> Instruction for InstructionMove<'a> {
                 opcode |= self.get_reg_value(self.register).unwrap();
 
                 let value = self.operand.value.parse::<u32>();
-                if value.is_ok() {
+                if !self.quadword && value.is_ok() {
                     let value = value.unwrap().to_le_bytes();
 
                     Ok(vec![
@@ -176,8 +182,6 @@ impl<'a> Instruction for InstructionMove<'a> {
                     ])
                 } else {
                     let value = self.operand.value.parse::<u64>().unwrap().to_le_bytes();
-                    let rex_w = 0b01001000;
-
                     Ok(vec![
                         IntermediateCode::Byte(rex_w),
                         IntermediateCode::Byte(opcode),
@@ -192,7 +196,7 @@ impl<'a> Instruction for InstructionMove<'a> {
                     ])
                 }
             }
-            Some(TokenType::LabelReference) => {
+            Some(TokenType::LabelReference) => {  // todo support 64 bit
                 let mut opcode = 0xb8;
                 // register is specified in 3 LSb's
                 opcode |= self.get_reg_value(self.register).unwrap();
@@ -211,10 +215,18 @@ impl<'a> Instruction for InstructionMove<'a> {
                     self.get_reg_value(&self.register).unwrap(),
                 );
 
-                Ok(vec![
-                    IntermediateCode::Byte(opcode),
-                    IntermediateCode::Byte(modrm),
-                ])
+                if self.quadword {
+                    Ok(vec![
+                        IntermediateCode::Byte(rex_w),
+                        IntermediateCode::Byte(opcode),
+                        IntermediateCode::Byte(modrm),
+                    ])
+                } else {
+                    Ok(vec![
+                        IntermediateCode::Byte(opcode),
+                        IntermediateCode::Byte(modrm),
+                    ])
+                }
             }
         }
     }
@@ -820,6 +832,7 @@ mod test_instructions {
             register: &register,
             operation: &operation,
             operand: &operand,
+            quadword: false,
         };
 
         let bytes = instruction.compile().unwrap();
@@ -853,6 +866,7 @@ mod test_instructions {
             register: &register,
             operation: &operation,
             operand: &operand,
+            quadword: false,
         };
 
         let bytes = instruction.compile().unwrap();
@@ -886,6 +900,7 @@ mod test_instructions {
             register: &register,
             operation: &operation,
             operand: &operand,
+            quadword: false,
         };
 
         let bytes = instruction.compile().unwrap();
@@ -919,6 +934,7 @@ mod test_instructions {
             register: &register,
             operation: &operation,
             operand: &operand,
+            quadword: false,
         };
 
         let bytes = instruction.compile().unwrap();
@@ -934,6 +950,45 @@ mod test_instructions {
                 IntermediateCode::Byte(0x00),
                 IntermediateCode::Byte(0x00),
                 IntermediateCode::Byte(0x00)
+            ],
+            &bytes
+        ));
+    }
+
+    #[test]
+    fn test_move_immediate_quadword_flag() {
+        let register = Token {
+            t: Some(TokenType::Register),
+            value: "⚫".to_string(),
+        };
+        let operation = Token {
+            t: Some(TokenType::Move),
+            value: "⬅".to_string(),
+        };
+        let operand = Token {
+            t: Some(TokenType::Value),
+            value: "1".to_string(),
+        };
+        let instruction = InstructionMove {
+            register: &register,
+            operation: &operation,
+            operand: &operand,
+            quadword: true,
+        };
+
+        let bytes = instruction.compile().unwrap();
+        assert!(vec_compare(
+            &[
+                IntermediateCode::Byte(0x48),
+                IntermediateCode::Byte(0xb8 | instruction.get_reg_value(&register).unwrap()),
+                IntermediateCode::Byte(0x01),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
+                IntermediateCode::Byte(0x00),
             ],
             &bytes
         ));
@@ -957,6 +1012,7 @@ mod test_instructions {
             register: &register,
             operation: &operation,
             operand: &operand,
+            quadword: false,
         };
 
         let bytes = instruction.compile().unwrap();
@@ -1666,6 +1722,7 @@ mod test_instructions {
             register: &register,
             operation: &operation,
             operand: &operand,
+            quadword: false,
         };
 
         let result = instruction.validate();
@@ -1690,6 +1747,7 @@ mod test_instructions {
             register: &register,
             operation: &operation,
             operand: &operand,
+            quadword: false,
         };
 
         let result = instruction.validate();
@@ -1764,12 +1822,13 @@ pub fn compile(tokens: Vec<Token>) -> Vec<IntermediateCode> {
                     }))
                 }
             }
-            Some(TokenType::Move) => {
+            Some(TokenType::Move) | Some(TokenType::MoveQuad) => {
                 if tokens.len() == 3 {
                     Some(Box::new(InstructionMove {
                         register: &tokens[0],
                         operation: &tokens[1],
                         operand: &tokens[2],
+                        quadword: token.t == Some(TokenType::MoveQuad),
                     }))
                 } else {
                     Some(Box::new(InstructionMoveModRM {

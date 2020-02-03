@@ -16,6 +16,7 @@ use std::fmt;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum TokenType {
     Move,
+    MoveQuad,
     Add,
     Subtract,
     Multiply,

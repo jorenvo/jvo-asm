@@ -1,0 +1,20 @@
+# constants
+🖊SYS_EXIT $33554433 # 0x2000001
+🖊SYS_WRITE $33554436 # 0x2000004
+🖊STDOUT $1
+
+# program
+# sum([ord(x) << (i * 8) for i, x in enumerate('hi!\n')])
+📥 $169961832
+
+⚪ ⬅ SYS_WRITE
+🟠 ⬅ STDOUT
+
+🟣 ⏪ ◀
+⚫ ⬅ $4
+⚡
+
+# exit
+⚪ ⬅ SYS_EXIT
+🟠 ⬅ $0
+⚡

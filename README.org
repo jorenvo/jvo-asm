@@ -171,6 +171,7 @@ allow for linking a correct section header is also generated.
 | 🔵       | =%ecx= |
 | ⚫       | =%edx= |
 | 🟠       | =%edi= |
+| 🟣       | =%esi= |
 | ◀        | =%esp= |
 | ⬇        | =%ebp= |
 |----------+--------|
@@ -185,6 +186,7 @@ allow for linking a correct section header is also generated.
 | ➖               | ⚪ ➖ ⚫     | ~⚪ -= ⚫~                                          |
 | ✖                | ⚪ ✖ ⚫      | ~⚪ *= ⚫~                                          |
 | ⬅                | 🔴 ⬅ $1      | Move into register                                  |
+| ⏪                | 🔴 ⏪ LARGE  | Move quadword into register                        |
 | ❗               | ❗ $128      | Interrupt                                           |
 | ⚖                | ⚖ ⚫, ⚪     | Compare ⚫ to ⚪                                    |
 | 🦘=              | 🦘= ✉exit    | Jump if equal                                       |
